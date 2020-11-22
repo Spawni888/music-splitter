@@ -1,21 +1,18 @@
 const Router = require('koa-router');
-const actions = require('./actions');
 const multer = require('@koa/multer');
 const path = require('path');
+const actions = require('./actions');
 
 const storageConfig = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, path.resolve(`${__dirname}/../../../frontend/public/uploaded/`));
   },
   filename: (req, file, cb) => {
-    const match = [...file.originalname.match(/([^.]+)/gi)];
-    const filename = match[0];
-    const extension = match[1];
+    const match = [...file.originalname.matchAll(/(.+)\.(.+$)/gi)][0];
+    const filename = match[1];
+    const extension = match[2];
 
     cb(null, `${filename}-${Date.now()}.${extension}`);
-  },
-  onFileUploadStart: (file) => {
-    console.log('start uploading');
   },
 });
 

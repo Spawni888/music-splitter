@@ -1,7 +1,8 @@
 .DS_Store
 node_modules
 /dist
-
+/frontend/public/music
+/backend/sh/pretrained_models
 
 # local env files
 .env.local
