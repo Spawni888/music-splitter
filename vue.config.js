@@ -1,6 +1,7 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const PrerenderSPAPlugin = require('prerender-spa-plugin');
 
 module.exports = {
   configureWebpack: (config) => {
@@ -33,7 +34,7 @@ module.exports = {
     config.devServer = {
       ...config.devServer,
       proxy: {
-        '/': {
+        '/api': {
           target: 'http://localhost:3000',
         },
       },
@@ -55,6 +56,19 @@ module.exports = {
         favicon: path.resolve(__dirname, './frontend/public/favicon.png'),
         template: path.resolve(__dirname, './frontend/public/index.html'),
         inject: true,
+      }),
+      new PrerenderSPAPlugin({
+        staticDir: path.join(__dirname, 'dist'),
+        routes: ['/', '/about'],
+
+        postProcess(renderedRoute) {
+          renderedRoute.route = renderedRoute.originalRoute;
+          if (renderedRoute.route.endsWith('.html')) {
+            renderedRoute.outputPath = path.join(__dirname, 'dist', renderedRoute.route);
+          }
+
+          return renderedRoute;
+        },
       }),
     ];
   },

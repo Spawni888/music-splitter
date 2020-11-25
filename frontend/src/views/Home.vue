@@ -1,7 +1,7 @@
 <template>
   <div class="home">
     <input ref="fileInput" type="file" @change="loadFile">
-    <button @click="sendFile">send file</button>
+    <button @click="sendFile($refs.fileInput)">send file</button>
   </div>
 </template>
 
@@ -10,6 +10,10 @@ import axios from 'axios';
 
 export default {
   name: 'Home',
+  metaInfo: {
+    // if no subcomponents specify a metaInfo.title, this title will be used
+    title: 'Default Title',
+  },
   data: () => ({
     showSendBtn: false,
   }),
@@ -19,17 +23,23 @@ export default {
     },
   },
   methods: {
-    loadFile(e) {
-      const file = e.target.files[0];
+    loadFile() {
+      // const file = e.target.files[0];
+      // const formData = new FormData();
+      //
+      // formData.append('music', file);
       // axios.request({
       //   method: 'post',
       //   url: '/splitter',
-      //   data: file,
+      //   data: formData,
       //   header: {
-      //     'Content-Type': file.type,
+      //     'Content-Type': 'multipart/form-data',
       //   },
       // })
       //   .then(res => console.log(res.data));
+    },
+    sendFile(fileInput) {
+      const file = fileInput.files[0];
       const formData = new FormData();
 
       formData.append('music', file);
@@ -43,20 +53,8 @@ export default {
       })
         .then(res => console.log(res.data));
     },
-    sendFile() {
-      console.log(this.music);
-      const formData = new FormData();
-
-      formData.append('music', this.music);
-      axios.request({
-        method: 'post',
-        url: '/splitter',
-        data: formData,
-      });
-    },
   },
-  components: {
-  },
+  components: {},
 };
 </script>
 <style scoped lang="scss">
