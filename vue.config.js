@@ -4,6 +4,15 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const PrerenderSPAPlugin = require('prerender-spa-plugin');
 
 module.exports = {
+  css: {
+    extract: false,
+    loaderOptions: {
+      sass: {
+        prependData:
+          '@import "@/assets/styles/main.scss";',
+      },
+    },
+  },
   configureWebpack: (config) => {
     // eslint-disable-next-line no-param-reassign
     config.entry = {

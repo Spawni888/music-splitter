@@ -17,6 +17,7 @@ module.exports = {
     'brace-style': 'off',
     'arrow-parens': 'off',
     'no-confusing-arrow': 'off',
-    'consistent-return': 'off'
+    'consistent-return': 'off',
+    'import/extensions': 'off'
   },
 };

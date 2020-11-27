@@ -1,18 +1,26 @@
 <template>
-  <div class="home">
-    <input ref="fileInput" type="file" @change="loadFile">
-    <button @click="sendFile($refs.fileInput)">send file</button>
-  </div>
+  <main class="home">
+    <CoreContainer>
+      <section class="about">
+        <h1 class="about__title">
+          Music Splitter
+        </h1>
+      </section>
+    </CoreContainer>
+<!--    <input ref="fileInput" type="file" @change="loadFile">-->
+<!--    <button @click="sendFile($refs.fileInput)">send file</button>-->
+  </main>
 </template>
 
 <script>
 import axios from 'axios';
+import CoreContainer from '@/components/CoreContainer';
 
 export default {
   name: 'Home',
   metaInfo: {
     // if no subcomponents specify a metaInfo.title, this title will be used
-    title: 'Default Title',
+    title: 'Splitter',
   },
   data: () => ({
     showSendBtn: false,
@@ -54,9 +62,17 @@ export default {
         .then(res => console.log(res.data));
     },
   },
-  components: {},
+  components: {
+    CoreContainer,
+  },
 };
 </script>
 <style scoped lang="scss">
-
+  .home {
+    .about {
+      &__title {
+        color: $coreColor;
+      }
+    }
+  }
 </style>

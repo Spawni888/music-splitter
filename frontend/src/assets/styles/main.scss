@@ -1,2 +1,8 @@
-@import "normalize";
-@import "mixins";
+@import "utils/libs";
+@import "utils/vars";
+@import "utils/fonts";
+@import "utils/mixins";
+
+* {
+    color: #4a5764;
+}
