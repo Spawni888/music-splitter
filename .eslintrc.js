@@ -18,6 +18,7 @@ module.exports = {
     'arrow-parens': 'off',
     'no-confusing-arrow': 'off',
     'consistent-return': 'off',
-    'import/extensions': 'off'
+    'import/extensions': 'off',
+    'func-names': 'off'
   },
 };

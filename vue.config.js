@@ -66,19 +66,25 @@ module.exports = {
         template: path.resolve(__dirname, './frontend/public/index.html'),
         inject: true,
       }),
-      new PrerenderSPAPlugin({
-        staticDir: path.join(__dirname, 'dist'),
-        routes: ['/', '/about'],
-
-        postProcess(renderedRoute) {
-          renderedRoute.route = renderedRoute.originalRoute;
-          if (renderedRoute.route.endsWith('.html')) {
-            renderedRoute.outputPath = path.join(__dirname, 'dist', renderedRoute.route);
-          }
-
-          return renderedRoute;
-        },
-      }),
     ];
+
+    // prerender at build
+    if (process.env.NODE_ENV === 'production') {
+      config.plugins.push(
+        new PrerenderSPAPlugin({
+          staticDir: path.join(__dirname, 'dist'),
+          routes: ['/', '/about'],
+
+          postProcess(renderedRoute) {
+            renderedRoute.route = renderedRoute.originalRoute;
+            if (renderedRoute.route.endsWith('.html')) {
+              renderedRoute.outputPath = path.join(__dirname, 'dist', renderedRoute.route);
+            }
+
+            return renderedRoute;
+          },
+        }),
+      );
+    }
   },
 };

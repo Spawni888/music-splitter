@@ -1,6 +1,6 @@
 const { execFile } = require('child_process');
-const fs = require('fs');
-const path = require('path')git rm -r ./node_modules/;
+// const fs = require('fs');
+const path = require('path');
 
 const postSplitMusic = async (ctx) => {
   // console.log(ctx.request.file);
@@ -23,9 +23,6 @@ const postSplitMusic = async (ctx) => {
     .catch((err) => {
       ctx.throw(err);
     });
-  // create a read stream
-
-  ctx.body = 'Backend up';
 };
 
 function promiseFromChildProcess(child) {

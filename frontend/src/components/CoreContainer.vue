@@ -16,6 +16,8 @@ export default {
     padding: 16px;
     display: flex;
     align-items: center;
-    max-width: 1260px;
+    max-width: 1100px;
+    width: 100%;
+    flex: 1;
   }
 </style>

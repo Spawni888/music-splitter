@@ -22,5 +22,5 @@ const storageConfig = multer.diskStorage({
   },
 });
 
-module.exports = new Router({ prefix: '/splitter' })
-  .post('/', multer({ storage: storageConfig }).single('music'), actions.postSplitMusic);
+module.exports = new Router({ prefix: '/api' })
+  .post('/splitter', multer({ storage: storageConfig }).single('music'), actions.postSplitMusic);
