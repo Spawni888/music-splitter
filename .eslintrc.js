@@ -19,6 +19,6 @@ module.exports = {
     'no-confusing-arrow': 'off',
     'consistent-return': 'off',
     'import/extensions': 'off',
-    'func-names': 'off'
+    'func-names': 'off',
   },
 };

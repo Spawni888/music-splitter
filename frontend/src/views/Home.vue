@@ -18,7 +18,7 @@
           you want to split.
         </p>
       </section>
-      <section class="content">
+      <section v-if="!parseWaiting" class="content">
         <form
           class="box"
           ref="boxForm"
@@ -57,6 +57,11 @@
           </div>
         </transition>
       </section>
+      <div v-else class="content parser-loading">
+        <div class="title">
+          Your music is parsing now. Wait a couple of minutes.
+        </div>
+      </div>
     </CoreContainer>
   </main>
 </template>
@@ -75,8 +80,8 @@ export default {
     title: 'Splitter',
   },
   data: () => ({
-    showSendBtn: false,
     canDragNDrop: false,
+    parseWaiting: false,
     fileLimits: {
       // in MB
       size: 80,
@@ -451,5 +456,12 @@ export default {
     }
   }
 }
-
+/* parser-loading */
+.parser-loading {
+  .title {
+    color: #5d7790;
+    font-size: 2rem;
+    line-height: 2.5rem;
+  }
+}
 </style>
