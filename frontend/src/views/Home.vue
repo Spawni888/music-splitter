@@ -19,54 +19,58 @@
         </p>
       </section>
 
-      <div v-if="parseWaiting" class="content parser-loading">
-        <div class="title">
-          Your music is parsing now. Wait a couple of minutes.
+      <transition @enter="initLoadingPlayers" name="appear" mode="out-in">
+        <div v-if="parseWaiting" class="content parser-loading">
+          <div class="title">
+            Your music is parsing now. Wait a couple of minutes.
+          </div>
+          <div ref="loadingAudios" class="audio-container">
+            <audio />
+            <audio />
+            <audio />
+          </div>
         </div>
-        <div ref="loadingAudios" class="audio-container">
-          <audio />
-        </div>
-      </div>
 
-      <section v-else class="content">
-        <form
-          class="box"
-          ref="boxForm"
-          :class="{
+        <section v-else class="content">
+          <form
+            class="box"
+            ref="boxForm"
+            :class="{
             'drag-and-drop': canDragNDrop,
             'error': errorMsg
           }"
-        >
-          <transition-group name="appear" tag="div" mode="in-out" class="box__input">
-            <input
-              key="boxInput"
-              ref="boxInput"
-              class="box__file"
-              type="file"
-              @input="loadFile"
-              id="file"
-            />
-            <label key="boxLabel" ref="boxLabel" for="file">
+          >
+            <transition-group name="appear" tag="div" mode="in-out" class="box__input">
+              <input
+                key="boxInput"
+                ref="boxInput"
+                class="box__file"
+                type="file"
+                @input="loadFile"
+                id="file"
+              />
+              <label key="boxLabel" ref="boxLabel" for="file">
             <span key="icon" class="icon-container">
               <img src="@/assets/images/upload-icon.png" alt="upload">
             </span>
-              <span key="label-text" class="label-text">
+                <span key="label-text" class="label-text">
               <span class="default">Choose a file</span>
               <span class="box__dragndrop"> or drag it here</span>.
             </span>
-              <span :key="errorMsg" v-if="errorMsg" class="error-msg">{{ errorMsg }}</span>
-            </label>
-          </transition-group>
-        </form>
-        <transition name="appear" mode="out-in">
-          <div v-show="defaultPlayer.enabled" class="preplay-container">
-            <div class="audio-container">
-              <audio class="default-player" ref="defaultPlayer" preload="auto"></audio>
+                <span :key="errorMsg" v-if="errorMsg" class="error-msg">{{ errorMsg }}</span>
+              </label>
+            </transition-group>
+          </form>
+          <transition name="appear" mode="out-in">
+            <div v-show="defaultPlayer.enabled" class="preplay-container">
+              <div class="audio-container">
+                <audio class="default-player" ref="defaultPlayer" preload="auto"></audio>
+              </div>
+              <CoreButton @click="parseFile">Parse</CoreButton>
             </div>
-            <CoreButton @click="parseFile">Parse</CoreButton>
-          </div>
-        </transition>
-      </section>
+          </transition>
+        </section>
+      </transition>
 
     </CoreContainer>
   </main>
@@ -100,12 +104,9 @@ export default {
     defaultPlayer: {
       enabled: false,
     },
-    loadingAudiosLinks: [
-      '/static/music/placeholders/1.mp3',
-      '/static/music/placeholders/2.mp3',
-      '/static/music/placeholders/3.mp3',
-    ],
+    loadingAudiosLinks: [],
     loadingPlayers: [],
+    playersControls: ['play', 'progress', 'duration', 'mute', 'volume'],
   }),
   computed: {
     music() {
@@ -114,17 +115,13 @@ export default {
   },
   mounted() {
     this.initFirebase();
-    // get waiting-placeholders
-    axios.get('/api/splitter/placeholders')
-      .then(res => {
-        this.loadingAudiosLinks = res.data;
-      })
-      .catch(() => {
-        console.log('Whoops!');
-      });
 
     // init default player
-    this.defaultPlayer = Object.assign(this.defaultPlayer, new Plyr(this.$refs.defaultPlayer));
+    this.defaultPlayer = Object.assign(
+      this.defaultPlayer, new Plyr(this.$refs.defaultPlayer, {
+        controls: this.playersControls,
+      }),
+    );
 
     this.initDragNDrop();
   },
@@ -142,19 +139,14 @@ export default {
       // Initialize Firebase
       firebase.initializeApp(firebaseConfig);
 
-      const storageRef = firebase.storage().ref();
-      storageRef.listAll()
-        .then(audioList => {
-          audioList.items.forEach(async (item) => {
-            const downloadUrl = await storageRef.child(item.name).getDownloadURL();
-            this.$refs.defaultPlayer.src = downloadUrl;
+      firebase.firestore().collection('music')
+        .orderBy('uploadTime')
+        .limit(3)
+        .get()
+        .then(snapshot => {
+          snapshot.forEach(doc => {
+            this.loadingAudiosLinks.push(doc.data().coreUrl);
           });
-          console.log(audioList);
-        });
-
-      firebase.firestore().collection('music').doc('music-doc').get()
-        .then(doc => {
-          console.log(doc.data().music);
         });
     },
     initDragNDrop() {
@@ -248,27 +240,60 @@ export default {
       const formData = new FormData();
 
       formData.append('music', file);
-      axios.request({
-        method: 'post',
-        url: '/api/splitter',
-        data: formData,
-        header: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
-        .then(res => console.log(res.data))
-        .catch(() => {
-          this.parseWaiting = false;
-          this.errorMsg = 'Something went wrong with your file.';
-        });
-      // TODO: uncomment
-      // this.parseWaiting = true;
-      this.$nextTick(() => {
-        this.$refs.loadingAudios.childNodes.forEach((audioNode, i) => {
-          audioNode.src = `http://localhost:3000${this.loadingAudiosLinks[i]}`;
-          this.loadingPlayers.push(new Plyr(audioNode));
+      console.log(axios);
+      // axios.request({
+      //   method: 'post',
+      //   url: '/api/splitter',
+      //   data: formData,
+      //   header: {
+      //     'Content-Type': 'multipart/form-data',
+      //   },
+      // })
+      //   .then(res => console.log(res.data))
+      //   .catch(() => {
+      //     this.parseWaiting = false;
+      //     this.errorMsg = 'Something went wrong with your file.';
+      //   });
+
+      this.parseWaiting = true;
+    },
+    initLoadingPlayers() {
+      this.$refs.loadingAudios.childNodes.forEach((audioNode, i) => {
+        console.log(1);
+        audioNode.src = this.loadingAudiosLinks[i];
+        this.loadingPlayers.push(new Plyr(audioNode), {
+          controls: this.playersControls,
         });
       });
+
+      // play only one
+      this.loadingPlayers.forEach(player => {
+        player.on('play', () => {
+          // player.elements.container.classList.add('player-expand');
+          this.loadingPlayers.forEach(otherPlayer => {
+            if (otherPlayer !== player && otherPlayer.playing) {
+              otherPlayer.pause();
+            }
+          });
+          // player.toggleControls('progress');
+        });
+        // player.addEventListener('pause', () => {
+        //   if (!player.seeking) {
+        //     player.elements.container.classList.remove('player-expand');
+        //   }
+        // });
+      });
+
+      // const playButtons = document.querySelectorAll('.play-button');
+      // playButtons.forEach(playButton => {
+      //   playButton.addEventListener('click', event => {
+      //     event.preventDefault();
+      //     console.log(playButton.parentNode.querySelector('.audio-player'));
+      //     const player = playButton.parentNode.querySelector('.plyr');
+      //     player.style.display = 'block';
+      //     playButton.style.opacity = 0;
+      //   });
+      // });
     },
   },
   components: {

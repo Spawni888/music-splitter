@@ -8,7 +8,7 @@ firebaseAdmin.initializeApp({
   databaseURL: 'https://sound-whale.firebaseio.com',
 });
 const firebaseStorage = firebaseAdmin.storage().bucket('sound-whale.appspot.com');
-const firebaseFirestore = firebaseAdmin.firestore().collection('music').doc('music-doc');
+const firebaseFirestore = firebaseAdmin.firestore().collection('music');
 
 const parseFilename = require('../../utils/parseFilename');
 
@@ -86,28 +86,43 @@ const postSplitMusic = async ctx => {
     });
 
   // add meta-data to firebase realtime db
-  const signedUrl = await firebaseStorage.file('1.mp3').getSignedUrl({
+  const coreUrl = await firebaseStorage.file(`${filename}.${fileExtension}`).getSignedUrl({
     action: 'read',
-    expires: Date.now() + REMOVE_FILE_TIMER,
+    expires: Date.now() + 316224000000,
+    responseDisposition: `attachment; filename="${filename}.${fileExtension}"`,
   });
+  const vocalsUrl = await firebaseStorage.file(`${filename}/vocals.${fileExtension}`).getSignedUrl({
+    action: 'read',
+    expires: Date.now() + 316224000000,
+    responseDisposition: `attachment; filename="vocals.${fileExtension}"`,
+  });
+  const accompanimentUrl = await firebaseStorage.file(`${filename}/accompaniment.${fileExtension}`).getSignedUrl({
+    action: 'read',
+    expires: Date.now() + 316224000000,
+    responseDisposition: `attachment; filename="accompaniment.${fileExtension}"`,
+  });
+  const firestoreObject = {
+    name: `${filename}.${fileExtension}`,
+    uploadTime: Date.now(),
+    coreUrl: coreUrl[0],
+    vocalsUrl: vocalsUrl[0],
+    accompanimentUrl: accompanimentUrl[0],
+  };
+  firebaseFirestore
+    .doc(filename)
+    .set(firestoreObject)
+    .then(() => console.log(`${filename} has been saved to firestore!`))
+    .catch(() => console.log(`${filename} saving to firestore has been FAILED!`));
 
-  firebaseFirestore.update({
-    music: firebaseAdmin.firestore.FieldValue.arrayUnion({
-      uploadTime: Date.now(),
-      url: signedUrl[0],
-    }),
-  })
-    .then(data => console.log(data));
-
-  // TODO: create delete of useless fields
   // remove files from firebase
   setTimeout(() => {
     Promise.all([
       firebaseStorage.deleteFiles({ directory: `${filename}` }),
       firebaseStorage.deleteFiles({ prefix: `${filename}.${fileExtension}` }),
-      // firebaseDb.child(filename).remove(),
+      firebaseFirestore.doc(filename).delete(),
     ])
-      .then(() => console.log(`${filename} was deleted from firebase storage`));
+      .then(() => console.log(`${filename} has been deleted from firebase`))
+      .catch(() => console.log(`${filename} has NOT been deleted from firebase!`));
   }, REMOVE_FILE_TIMER);
 
   ctx.body = {
