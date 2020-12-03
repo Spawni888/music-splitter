@@ -1,12 +1,12 @@
 const path = require('path');
 const Koa = require('koa');
-// const bodyParser = require('koa-bodyparser');
+const bodyParser = require('koa-bodyparser');
 // const koaBody = require('koa-body');
 const send = require('koa-send');
 const serve = require('koa-static');
 const logger = require('koa-logger');
 const readDir = require('recursive-readdir-sync');
-const config = require('./services/config');
+const config = require('./utils/config');
 const middlewares = require('./middlewares');
 // const db = require('./services/db');
 
@@ -21,9 +21,8 @@ if (process.env.ENV !== 'production') {
 }
 
 app.use(serve(path.join(__dirname, '..', 'dist')))
-  // .use(bodyParser())
+  .use(bodyParser())
   .use(async (ctx, next) => {
-    console.log('test');
     try {
       await next();
     }

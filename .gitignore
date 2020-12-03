@@ -2,7 +2,7 @@
 node_modules
 /dist
 /pretrained_models
-
+/music
 # local env files
 .env.local
 .env.*.local

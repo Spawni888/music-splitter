@@ -18,7 +18,17 @@
           you want to split.
         </p>
       </section>
-      <section v-if="!parseWaiting" class="content">
+
+      <div v-if="parseWaiting" class="content parser-loading">
+        <div class="title">
+          Your music is parsing now. Wait a couple of minutes.
+        </div>
+        <div ref="loadingAudios" class="audio-container">
+          <audio />
+        </div>
+      </div>
+
+      <section v-else class="content">
         <form
           class="box"
           ref="boxForm"
@@ -51,17 +61,13 @@
         <transition name="appear" mode="out-in">
           <div v-show="defaultPlayer.enabled" class="preplay-container">
             <div class="audio-container">
-              <audio class="default-player" ref="defaultPlayer"></audio>
+              <audio class="default-player" ref="defaultPlayer" preload="auto"></audio>
             </div>
             <CoreButton @click="parseFile">Parse</CoreButton>
           </div>
         </transition>
       </section>
-      <div v-else class="content parser-loading">
-        <div class="title">
-          Your music is parsing now. Wait a couple of minutes.
-        </div>
-      </div>
+
     </CoreContainer>
   </main>
 </template>
@@ -72,6 +78,9 @@ import Plyr from 'plyr';
 import CoreContainer from '@/components/CoreContainer';
 import CoreButton from '@/components/CoreButton';
 import 'plyr/src/sass/plyr.scss';
+import firebase from 'firebase/app';
+import 'firebase/storage';
+import 'firebase/firestore';
 
 export default {
   name: 'Home',
@@ -91,6 +100,12 @@ export default {
     defaultPlayer: {
       enabled: false,
     },
+    loadingAudiosLinks: [
+      '/static/music/placeholders/1.mp3',
+      '/static/music/placeholders/2.mp3',
+      '/static/music/placeholders/3.mp3',
+    ],
+    loadingPlayers: [],
   }),
   computed: {
     music() {
@@ -98,51 +113,93 @@ export default {
     },
   },
   mounted() {
+    this.initFirebase();
+    // get waiting-placeholders
+    axios.get('/api/splitter/placeholders')
+      .then(res => {
+        this.loadingAudiosLinks = res.data;
+      })
+      .catch(() => {
+        console.log('Whoops!');
+      });
+
+    // init default player
     this.defaultPlayer = Object.assign(this.defaultPlayer, new Plyr(this.$refs.defaultPlayer));
 
-    this.canDragNDrop = (function browserSupportDragNDrop() {
-      const div = document.createElement('div');
-      return (('draggable' in div) || ('ondragstart' in div && 'ondrop' in div)) && 'FormData' in window && 'FileReader' in window;
-    }());
-
-    if (this.canDragNDrop) {
-      const { boxForm } = this.$refs;
-      // counter of events to prevent animation cancel;
-      let counter = 0;
-      this.addMultipleListeners(
-        boxForm,
-        'drag dragstart dragend dragover dragenter dragleave drop',
-        (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        },
-      );
-
-      this.addMultipleListeners(
-        boxForm,
-        'dragover dragenter',
-        () => {
-          boxForm.classList.add('is-dragover');
-        },
-      );
-      boxForm.addEventListener('dragenter', () => {
-        counter += 1;
-      });
-      this.addMultipleListeners(
-        boxForm,
-        'dragleave dragend drop',
-        () => {
-          counter -= 1;
-          if (counter <= 0) {
-            boxForm.classList.remove('is-dragover');
-          }
-        },
-      );
-
-      boxForm.addEventListener('drop', this.loadFile);
-    }
+    this.initDragNDrop();
   },
   methods: {
+    initFirebase() {
+      const firebaseConfig = {
+        apiKey: 'AIzaSyBZzV-ERo3e3HfwiTyS1J-dZA1g6ae6-tc',
+        authDomain: 'sound-whale.firebaseapp.com',
+        databaseURL: 'https://sound-whale.firebaseio.com',
+        projectId: 'sound-whale',
+        storageBucket: 'sound-whale.appspot.com',
+        messagingSenderId: '588528124575',
+        appId: '1:588528124575:web:c09f9aec159d37be40d8aa',
+      };
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+
+      const storageRef = firebase.storage().ref();
+      storageRef.listAll()
+        .then(audioList => {
+          audioList.items.forEach(async (item) => {
+            const downloadUrl = await storageRef.child(item.name).getDownloadURL();
+            this.$refs.defaultPlayer.src = downloadUrl;
+          });
+          console.log(audioList);
+        });
+
+      firebase.firestore().collection('music').doc('music-doc').get()
+        .then(doc => {
+          console.log(doc.data().music);
+        });
+    },
+    initDragNDrop() {
+      this.canDragNDrop = (function browserSupportDragNDrop() {
+        const div = document.createElement('div');
+        return (('draggable' in div) || ('ondragstart' in div && 'ondrop' in div)) && 'FormData' in window && 'FileReader' in window;
+      }());
+
+      if (this.canDragNDrop) {
+        const { boxForm } = this.$refs;
+        // counter of events to prevent animation cancel;
+        let counter = 0;
+        this.addMultipleListeners(
+          boxForm,
+          'drag dragstart dragend dragover dragenter dragleave drop',
+          (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          },
+        );
+
+        this.addMultipleListeners(
+          boxForm,
+          'dragover dragenter',
+          () => {
+            boxForm.classList.add('is-dragover');
+          },
+        );
+        boxForm.addEventListener('dragenter', () => {
+          counter += 1;
+        });
+        this.addMultipleListeners(
+          boxForm,
+          'dragleave dragend drop',
+          () => {
+            counter -= 1;
+            if (counter <= 0) {
+              boxForm.classList.remove('is-dragover');
+            }
+          },
+        );
+
+        boxForm.addEventListener('drop', this.loadFile);
+      }
+    },
     addMultipleListeners(el, eventNames, listener) {
       const events = eventNames.split(' ');
 
@@ -187,7 +244,6 @@ export default {
       this.$refs.defaultPlayer.pause();
     },
     parseFile() {
-      console.log(1);
       const file = this.$refs.boxInput.files[0];
       const formData = new FormData();
 
@@ -200,7 +256,19 @@ export default {
           'Content-Type': 'multipart/form-data',
         },
       })
-        .then(res => console.log(res.data));
+        .then(res => console.log(res.data))
+        .catch(() => {
+          this.parseWaiting = false;
+          this.errorMsg = 'Something went wrong with your file.';
+        });
+      // TODO: uncomment
+      // this.parseWaiting = true;
+      this.$nextTick(() => {
+        this.$refs.loadingAudios.childNodes.forEach((audioNode, i) => {
+          audioNode.src = `http://localhost:3000${this.loadingAudiosLinks[i]}`;
+          this.loadingPlayers.push(new Plyr(audioNode));
+        });
+      });
     },
   },
   components: {

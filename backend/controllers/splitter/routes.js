@@ -10,7 +10,7 @@ const parseFilename = require('../../utils/parseFilename');
 
 const storageConfig = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.resolve(`${__dirname}/../../../dist/static/music/`));
+    cb(null, path.resolve(`${__dirname}/../../../music`));
   },
   filename: (req, file, cb) => {
     const { filename, fileExtension } = parseFilename(file.originalname);
@@ -25,5 +25,6 @@ const storageConfig = multer.diskStorage({
   },
 });
 
-module.exports = new Router({ prefix: '/api' })
-  .post('/splitter', multer({ storage: storageConfig }).single('music'), actions.postSplitMusic);
+module.exports = new Router({ prefix: '/api/splitter' })
+  .post('/', multer({ storage: storageConfig }).single('music'), actions.postSplitMusic)
+  .get('/placeholders', actions.getPlaceholders);
