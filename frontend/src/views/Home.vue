@@ -20,27 +20,24 @@
       </section>
 
       <transition @enter="initPlayers" name="appear" mode="out-in">
-        <section key="parsedResult" v-if="parsedResult" class="content parsed-result">
+        <section key="parsedResult" v-if="parsedResult.length" class="content parsed-result">
           <div class="content__title">Your music was parsed successfully!</div>
           <p class="content__paragraph">It's done! Listen now!</p>
           <div class="parsed-audios" ref="parsedAudios">
-            <div class="result-audio">
-              <div class="audio-name">Vocals</div>
+            <div
+              v-for="{ url, name } in parsedResult"
+              :key="'audio' + name"
+              class="result-audio"
+            >
+              <div class="audio-name">{{ name }}</div>
               <div class="audio-case">
-                <audio />
+                <audio :src="url" />
               </div>
-              <CoreButton>Download</CoreButton>
-            </div>
-            <div class="result-audio">
-              <div class="audio-name">Accompaniment</div>
-              <div class="audio-case">
-                <audio />
-              </div>
-              <CoreButton>Download</CoreButton>
+              <CoreButton @click="download(url, name)">Download</CoreButton>
             </div>
           </div>
           <div class="btn-container">
-            <CoreButton>New one</CoreButton>
+            <CoreButton @click="resetApp">New one</CoreButton>
           </div>
         </section>
 
@@ -53,14 +50,11 @@
             You can listen 3 last uploaded tracks while waiting.
           </p>
           <div ref="loadingAudios" class="loading-audios">
-            <div class="audio-case">
-              <audio />
-            </div>
-            <div class="audio-case">
-              <audio />
-            </div>
-            <div class="audio-case">
-              <audio />
+            <div
+              v-for="link in loadingAudiosLinks"
+              :key="link"
+              class="audio-case">
+              <audio :src="link" />
             </div>
           </div>
         </section>
@@ -97,14 +91,17 @@
           </form>
           <form class="youtube">
             <div class="youtube__input">
-              <div class="logo">
-                <img src="@/assets/images/youtube.svg">
+              <div class="logo-container">
+                <div class="logo">
+                  <img src="@/assets/images/youtube.svg">
+                  <div class="name">YouTube</div>
+                </div>
               </div>
               <input type="text">
             </div>
             <CoreButton>Load</CoreButton>
           </form>
-          <transition name="appear" mode="out-in">
+          <transition name="appear" mode="out-in" @enter="initDefaultPlayer">
             <div v-show="defaultPlayer.enabled" class="preplay-container">
               <div class="audio-container">
                 <audio class="default-player" ref="defaultPlayer" preload="auto"></audio>
@@ -153,8 +150,7 @@ export default {
     },
     loadingAudiosLinks: [],
     loadingPlayers: [],
-    playersControls: ['play', 'progress', 'duration', 'mute', 'volume'],
-    parsedResult: null,
+    parsedResult: [],
     resultPlayers: [],
   }),
   computed: {
@@ -164,13 +160,7 @@ export default {
   },
   mounted() {
     this.initFirebase();
-
-    // init default player
-    this.defaultPlayer = Object.assign(
-      this.defaultPlayer, new Plyr(this.$refs.defaultPlayer, {
-        controls: this.playersControls,
-      }),
-    );
+    this.getLoadingTracks();
 
     this.initDragNDrop();
   },
@@ -187,14 +177,15 @@ export default {
       };
       // Initialize Firebase
       firebase.initializeApp(firebaseConfig);
-
+    },
+    getLoadingTracks() {
       firebase.firestore().collection('music')
         .orderBy('uploadTime', 'desc')
         .limit(3)
         .get()
         .then(snapshot => {
           snapshot.forEach(doc => {
-            this.loadingAudiosLinks.push(doc.data().coreUrl);
+            this.loadingAudiosLinks.push(doc.data().originalUrl);
           });
         });
     },
@@ -275,8 +266,6 @@ export default {
       if (validFile) {
         this.defaultPlayer.enabled = true;
         this.$refs.defaultPlayer.src = URL.createObjectURL(file);
-        this.$refs.defaultPlayer.parentNode.style.width = '100%';
-        this.$refs.defaultPlayer.parentNode.style.borderRadius = '8px';
       }
     },
     setError(msg) {
@@ -297,9 +286,13 @@ export default {
           'Content-Type': 'multipart/form-data',
         },
       })
-        .then(res => {
+        .then(({ data }) => {
           this.parseWaiting = false;
-          this.parsedResult = res.data;
+          this.parsedResult = [
+            { name: 'Original', url: data.originalUrl },
+            { name: 'Accompaniment', url: data.accompanimentUrl },
+            { name: 'Vocals', url: data.vocalsUrl },
+          ];
         })
         .catch(() => {
           this.parseWaiting = false;
@@ -311,12 +304,10 @@ export default {
     initPlayers() {
       if (this.parseWaiting) {
         // init loading players
-        this.$refs.loadingAudios.querySelectorAll('audio').forEach((audioNode, i) => {
-          audioNode.src = this.loadingAudiosLinks[i];
+        this.$refs.loadingAudios.querySelectorAll('audio').forEach((audioNode) => {
           this.loadingPlayers.push(new Plyr(audioNode));
-          audioNode.parentNode.style.width = '100%';
-          audioNode.parentNode.style.borderRadius = '8px';
         });
+        this.setPlayersStyle();
 
         // play only one
         this.playOneSameTime(this.loadingPlayers);
@@ -333,18 +324,14 @@ export default {
 
         dots.play();
       }
-      else if (this.parsedResult) {
-        console.log(this.$refs.parsedAudios);
+      else if (this.parsedResult.length) {
         const audios = this.$refs.parsedAudios.querySelectorAll('audio');
 
-        audios[0].src = this.parsedResult.vocalsUrl;
-        audios[1].src = this.parsedResult.accompanimentUrl;
-
+        // init players
         audios.forEach(audioNode => {
           this.resultPlayers.push(new Plyr(audioNode));
-          audioNode.parentNode.style.width = '100%';
-          audioNode.parentNode.style.borderRadius = '8px';
         });
+        this.setPlayersStyle();
         // allow play only one player same time
         this.playOneSameTime(this.resultPlayers);
       }
@@ -358,6 +345,36 @@ export default {
             }
           });
         });
+      });
+    },
+    download(url, name) {
+      const link = document.createElement('a');
+
+      link.setAttribute('download', name);
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    },
+    resetApp() {
+      this.parsedResult = [];
+      this.resultPlayers = [];
+      this.defaultPlayer.enabled = false;
+      this.getLoadingTracks();
+    },
+    initDefaultPlayer() {
+      // init default player
+      this.defaultPlayer = Object.assign(
+        this.defaultPlayer, new Plyr(this.$refs.defaultPlayer),
+      );
+      this.setPlayersStyle();
+    },
+    setPlayersStyle() {
+      const audios = document.body.querySelectorAll('audio');
+
+      audios.forEach(audio => {
+        audio.parentNode.style.width = '100%';
+        audio.parentNode.style.borderRadius = '8px';
       });
     },
   },
@@ -543,26 +560,35 @@ export default {
           display: flex;
           width: 100%;
           box-shadow: 0 2px 15px rgba(0,0,0,.1);
-          .logo {
-            position: relative;
-            width: 50px;
+          .logo-container {
             border-top-left-radius: 8px;
             border-bottom-left-radius: 8px;
             background-color: #00B3FF;
+            display: flex;
+            justify-content: center;
+            align-items: center;
 
-            img {
-              position: absolute;
-              top: 50%;
-              left: 50%;
-              transform: translateX(-50%) translateY(-50%);
-              max-width: 25px;
-              width: 100%;
-              height: auto;
-              filter: invert(1);
+            .logo {
+              display: flex;
+              align-items: center;
+              padding: 10px;
+              .name {
+                color: #ffffff;
+                font-size: 0.8rem;
+              }
+              img {
+                margin-right: 5px;
+                max-width: 20px;
+                width: 100%;
+                height: auto;
+                filter: invert(1);
+              }
             }
           }
           input {
-            padding: 0 20px;
+            text-overflow: ellipsis;
+            flex: 1;
+            padding: 0 10px;
             height: 100%;
             overflow: hidden;
             border-radius: 8px;
@@ -603,6 +629,7 @@ export default {
         margin-bottom: 10px;
       }
       .content__paragraph {
+        display: none;
         margin-bottom: 0;
       }
       .parsed-audios {

@@ -87,7 +87,7 @@ const postSplitMusic = async ctx => {
     });
 
   // add meta-data to firebase realtime db
-  const coreUrl = await firebaseStorage.file(`${filename}.${fileExtension}`).getSignedUrl({
+  const originalUrl = await firebaseStorage.file(`${filename}.${fileExtension}`).getSignedUrl({
     action: 'read',
     expires: Date.now() + 316224000000,
     responseDisposition: `attachment; filename="${filename}.${fileExtension}"`,
@@ -105,7 +105,7 @@ const postSplitMusic = async ctx => {
   const firestoreObject = {
     name: `${filename}.${fileExtension}`,
     uploadTime: Date.now(),
-    coreUrl: coreUrl[0],
+    originalUrl: originalUrl[0],
     vocalsUrl: vocalsUrl[0],
     accompanimentUrl: accompanimentUrl[0],
   };
