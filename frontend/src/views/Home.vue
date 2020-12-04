@@ -102,7 +102,7 @@
             <CoreButton>Load</CoreButton>
           </form>
           <transition name="appear" mode="out-in" @enter="initDefaultPlayer">
-            <div v-show="defaultPlayer.enabled" class="preplay-container">
+            <div v-show="chosenFile" class="preplay-container">
               <div class="audio-container">
                 <audio class="default-player" ref="defaultPlayer" preload="auto"></audio>
               </div>
@@ -145,19 +145,13 @@ export default {
       types: ['audio/wav', 'audio/mpeg'],
     },
     errorMsg: '',
-    defaultPlayer: {
-      enabled: false,
-    },
+    defaultPlayer: null,
     loadingAudiosLinks: [],
     loadingPlayers: [],
     parsedResult: [],
     resultPlayers: [],
+    chosenFile: null,
   }),
-  computed: {
-    music() {
-      return this.$refs.fileInput.files[0];
-    },
-  },
   mounted() {
     this.initFirebase();
     this.getLoadingTracks();
@@ -258,26 +252,23 @@ export default {
       return false;
     },
     loadFile(e) {
-      const file = e.dataTransfer
+      this.chosenFile = e.dataTransfer
         ? e.dataTransfer.files[0]
         : e.target.files[0];
-      const validFile = this.checkFile(file);
+      const validFile = this.checkFile(this.chosenFile);
 
       if (validFile) {
-        this.defaultPlayer.enabled = true;
-        this.$refs.defaultPlayer.src = URL.createObjectURL(file);
+        this.$refs.defaultPlayer.src = URL.createObjectURL(this.chosenFile);
       }
     },
     setError(msg) {
       this.errorMsg = msg;
-      this.defaultPlayer.enabled = false;
       this.$refs.defaultPlayer.pause();
     },
     parseFile() {
-      const file = this.$refs.boxInput.files[0];
       const formData = new FormData();
 
-      formData.append('music', file);
+      formData.append('music', this.chosenFile);
       axios.request({
         method: 'post',
         url: '/api/splitter',
@@ -359,14 +350,12 @@ export default {
     resetApp() {
       this.parsedResult = [];
       this.resultPlayers = [];
-      this.defaultPlayer.enabled = false;
+      this.chosenFile = null;
       this.getLoadingTracks();
     },
     initDefaultPlayer() {
       // init default player
-      this.defaultPlayer = Object.assign(
-        this.defaultPlayer, new Plyr(this.$refs.defaultPlayer),
-      );
+      this.defaultPlayer = new Plyr(this.$refs.defaultPlayer);
       this.setPlayersStyle();
     },
     setPlayersStyle() {
@@ -561,6 +550,7 @@ export default {
           width: 100%;
           box-shadow: 0 2px 15px rgba(0,0,0,.1);
           .logo-container {
+            cursor: default;
             border-top-left-radius: 8px;
             border-bottom-left-radius: 8px;
             background-color: #00B3FF;
@@ -586,6 +576,7 @@ export default {
             }
           }
           input {
+            color: #4a5764;
             text-overflow: ellipsis;
             flex: 1;
             padding: 0 10px;
