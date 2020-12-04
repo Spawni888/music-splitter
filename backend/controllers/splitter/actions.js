@@ -23,7 +23,8 @@ const postSplitMusic = async ctx => {
 
   // upload to firebase-store
   firebaseStorage.upload(filePath)
-    .then(() => console.log('Init track has been uploaded to the firebase storage'));
+    .then(() => console.log('Init track has been uploaded to the firebase storage'))
+    .catch(() => console.log('Init track upload to the firebase storage was FAILED!'));
 
   // split music
   const splitProcess = execFile('sh', [path.resolve(__dirname, '../../sh/split_music.sh')], {

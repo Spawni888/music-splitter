@@ -95,6 +95,15 @@
               </label>
             </div>
           </form>
+          <form class="youtube">
+            <div class="youtube__input">
+              <div class="logo">
+                <img src="@/assets/images/youtube.svg">
+              </div>
+              <input type="text">
+            </div>
+            <CoreButton>Load</CoreButton>
+          </form>
           <transition name="appear" mode="out-in">
             <div v-show="defaultPlayer.enabled" class="preplay-container">
               <div class="audio-container">
@@ -522,6 +531,49 @@ export default {
         margin: 0 0 24px;
         text-align: left;
         line-height: 1.75;
+      }
+      .youtube {
+        margin-bottom: 20px;
+
+        border-radius: 8px;
+        width: 100%;
+        display: flex;
+        &__input {
+          border-radius: 8px;
+          display: flex;
+          width: 100%;
+          box-shadow: 0 2px 15px rgba(0,0,0,.1);
+          .logo {
+            position: relative;
+            width: 50px;
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+            background-color: #00B3FF;
+
+            img {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translateX(-50%) translateY(-50%);
+              max-width: 25px;
+              width: 100%;
+              height: auto;
+              filter: invert(1);
+            }
+          }
+          input {
+            padding: 0 20px;
+            height: 100%;
+            overflow: hidden;
+            border-radius: 8px;
+            outline: none;
+            width: 100%;
+            border: none;
+          }
+        }
+        .core-btn {
+          margin-left: 20px;
+        }
       }
     }
 

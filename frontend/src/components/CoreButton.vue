@@ -12,6 +12,7 @@ export default {
 
 <style scoped lang="scss">
   .core-btn {
+    min-width: 84px;
     border-radius: 4px;
     cursor: pointer;
     background-color: #00B3FF;
