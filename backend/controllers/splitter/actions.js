@@ -125,10 +125,7 @@ const postSplitMusic = async ctx => {
       .catch(() => console.log(`${filename} has NOT been deleted from firebase!`));
   }, REMOVE_FILE_TIMER);
 
-  ctx.body = {
-    vocalFilePath: `/static/music/${filename}/vocals.wav`,
-    minusFilePath: `/static/music/${filename}/accompaniment.wav`,
-  };
+  ctx.body = firestoreObject;
 };
 
 const getPlaceholders = async ctx => {

@@ -19,19 +19,53 @@
         </p>
       </section>
 
-      <transition @enter="initLoadingPlayers" name="appear" mode="out-in">
-        <div v-if="parseWaiting" class="content parser-loading">
-          <div class="title">
-            Your music is parsing now. Wait a couple of minutes.
+      <transition @enter="initPlayers" name="appear" mode="out-in">
+        <section key="parsedResult" v-if="parsedResult" class="content parsed-result">
+          <div class="content__title">Your music was parsed successfully!</div>
+          <p class="content__paragraph">It's done! Listen now!</p>
+          <div class="parsed-audios" ref="parsedAudios">
+            <div class="result-audio">
+              <div class="audio-name">Vocals</div>
+              <div class="audio-case">
+                <audio />
+              </div>
+              <CoreButton>Download</CoreButton>
+            </div>
+            <div class="result-audio">
+              <div class="audio-name">Accompaniment</div>
+              <div class="audio-case">
+                <audio />
+              </div>
+              <CoreButton>Download</CoreButton>
+            </div>
           </div>
-          <div ref="loadingAudios" class="audio-container">
-            <audio />
-            <audio />
-            <audio />
+          <div class="btn-container">
+            <CoreButton>New one</CoreButton>
           </div>
-        </div>
+        </section>
 
-        <section v-else class="content">
+        <section :key="parseWaiting" v-else-if="parseWaiting" class="content parser-loading">
+          <div class="content__title" >
+            Your music is parsing now. Wait a couple of minutes
+            <span class="loadingDots"></span>
+          </div>
+          <p class="content__paragraph">
+            You can listen 3 last uploaded tracks while waiting.
+          </p>
+          <div ref="loadingAudios" class="loading-audios">
+            <div class="audio-case">
+              <audio />
+            </div>
+            <div class="audio-case">
+              <audio />
+            </div>
+            <div class="audio-case">
+              <audio />
+            </div>
+          </div>
+        </section>
+
+        <section key="box" v-else class="content">
           <form
             class="box"
             ref="boxForm"
@@ -40,7 +74,7 @@
             'error': errorMsg
           }"
           >
-            <transition-group name="appear" tag="div" mode="in-out" class="box__input">
+            <div class="box__input">
               <input
                 key="boxInput"
                 ref="boxInput"
@@ -59,7 +93,7 @@
             </span>
                 <span :key="errorMsg" v-if="errorMsg" class="error-msg">{{ errorMsg }}</span>
               </label>
-            </transition-group>
+            </div>
           </form>
           <transition name="appear" mode="out-in">
             <div v-show="defaultPlayer.enabled" class="preplay-container">
@@ -78,6 +112,8 @@
 
 <script>
 import axios from 'axios';
+import { gsap, TimelineMax } from 'gsap';
+import { TextPlugin } from 'gsap/TextPlugin';
 import Plyr from 'plyr';
 import CoreContainer from '@/components/CoreContainer';
 import CoreButton from '@/components/CoreButton';
@@ -85,6 +121,8 @@ import 'plyr/src/sass/plyr.scss';
 import firebase from 'firebase/app';
 import 'firebase/storage';
 import 'firebase/firestore';
+
+gsap.registerPlugin(TextPlugin);
 
 export default {
   name: 'Home',
@@ -107,6 +145,8 @@ export default {
     loadingAudiosLinks: [],
     loadingPlayers: [],
     playersControls: ['play', 'progress', 'duration', 'mute', 'volume'],
+    parsedResult: null,
+    resultPlayers: [],
   }),
   computed: {
     music() {
@@ -140,7 +180,7 @@ export default {
       firebase.initializeApp(firebaseConfig);
 
       firebase.firestore().collection('music')
-        .orderBy('uploadTime')
+        .orderBy('uploadTime', 'desc')
         .limit(3)
         .get()
         .then(snapshot => {
@@ -240,60 +280,76 @@ export default {
       const formData = new FormData();
 
       formData.append('music', file);
-      console.log(axios);
-      // axios.request({
-      //   method: 'post',
-      //   url: '/api/splitter',
-      //   data: formData,
-      //   header: {
-      //     'Content-Type': 'multipart/form-data',
-      //   },
-      // })
-      //   .then(res => console.log(res.data))
-      //   .catch(() => {
-      //     this.parseWaiting = false;
-      //     this.errorMsg = 'Something went wrong with your file.';
-      //   });
+      axios.request({
+        method: 'post',
+        url: '/api/splitter',
+        data: formData,
+        header: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+        .then(res => {
+          this.parseWaiting = false;
+          this.parsedResult = res.data;
+        })
+        .catch(() => {
+          this.parseWaiting = false;
+          this.errorMsg = 'Something went wrong with your file.';
+        });
 
       this.parseWaiting = true;
     },
-    initLoadingPlayers() {
-      this.$refs.loadingAudios.childNodes.forEach((audioNode, i) => {
-        console.log(1);
-        audioNode.src = this.loadingAudiosLinks[i];
-        this.loadingPlayers.push(new Plyr(audioNode), {
-          controls: this.playersControls,
+    initPlayers() {
+      if (this.parseWaiting) {
+        // init loading players
+        this.$refs.loadingAudios.querySelectorAll('audio').forEach((audioNode, i) => {
+          audioNode.src = this.loadingAudiosLinks[i];
+          this.loadingPlayers.push(new Plyr(audioNode));
+          audioNode.parentNode.style.width = '100%';
+          audioNode.parentNode.style.borderRadius = '8px';
         });
-      });
 
-      // play only one
-      this.loadingPlayers.forEach(player => {
+        // play only one
+        this.playOneSameTime(this.loadingPlayers);
+
+        // dots animation
+        const dots = new TimelineMax({
+          paused: true,
+          repeat: -1,
+          repeatDelay: 0.5,
+        })
+          .to('.loadingDots', 0.3, { text: ' .' })
+          .to('.loadingDots', 0.3, { text: ' ..' })
+          .to('.loadingDots', 0.3, { text: ' ...' });
+
+        dots.play();
+      }
+      else if (this.parsedResult) {
+        console.log(this.$refs.parsedAudios);
+        const audios = this.$refs.parsedAudios.querySelectorAll('audio');
+
+        audios[0].src = this.parsedResult.vocalsUrl;
+        audios[1].src = this.parsedResult.accompanimentUrl;
+
+        audios.forEach(audioNode => {
+          this.resultPlayers.push(new Plyr(audioNode));
+          audioNode.parentNode.style.width = '100%';
+          audioNode.parentNode.style.borderRadius = '8px';
+        });
+        // allow play only one player same time
+        this.playOneSameTime(this.resultPlayers);
+      }
+    },
+    playOneSameTime(players) {
+      players.forEach(player => {
         player.on('play', () => {
-          // player.elements.container.classList.add('player-expand');
-          this.loadingPlayers.forEach(otherPlayer => {
+          players.forEach(otherPlayer => {
             if (otherPlayer !== player && otherPlayer.playing) {
               otherPlayer.pause();
             }
           });
-          // player.toggleControls('progress');
         });
-        // player.addEventListener('pause', () => {
-        //   if (!player.seeking) {
-        //     player.elements.container.classList.remove('player-expand');
-        //   }
-        // });
       });
-
-      // const playButtons = document.querySelectorAll('.play-button');
-      // playButtons.forEach(playButton => {
-      //   playButton.addEventListener('click', event => {
-      //     event.preventDefault();
-      //     console.log(playButton.parentNode.querySelector('.audio-player'));
-      //     const player = playButton.parentNode.querySelector('.plyr');
-      //     player.style.display = 'block';
-      //     playButton.style.opacity = 0;
-      //   });
-      // });
     },
   },
   components: {
@@ -312,7 +368,7 @@ export default {
     .about {
       margin-right: 48px;
       max-width: 400px;
-      padding-bottom: 32px;
+      //padding-bottom: 32px;
 
       &__title {
         font-size: 4rem;
@@ -455,6 +511,71 @@ export default {
           margin-left: 20px;
         }
       }
+      &__title {
+        color: #5d7790;
+        font-size: 2rem;
+        line-height: 2.5rem;
+        margin-bottom: 40px;
+      }
+      &-paragraph {
+        font-size: 1rem;
+        margin: 0 0 24px;
+        text-align: left;
+        line-height: 1.75;
+      }
+    }
+
+    /* parser-loading */
+    .parser-loading {
+      height: auto;
+      .content__title {
+        .loadingDots {
+          text-align: start;
+          display: inline-block;
+          width: 20px;
+        }
+      }
+      .loading-audios {
+        width: 100%;
+        .audio-case {
+          width: 100%;
+          margin-bottom: 18px;
+          box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+          border-radius: 8px;
+        }
+      }
+    }
+    // parsed result
+    .parsed-result {
+      .content__title {
+        margin-bottom: 10px;
+      }
+      .content__paragraph {
+        margin-bottom: 0;
+      }
+      .parsed-audios {
+        width: 100%;
+        .result-audio {
+          display: flex;
+          flex-wrap: wrap;
+          .audio-name {
+            margin: 20px 0 10px;
+            flex: 1 1 100%;
+          }
+          .audio-case {
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+
+            flex: 1;
+            margin-right: 20px;
+          }
+        }
+      }
+      .btn-container {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+      }
     }
   }
   .loader {
@@ -549,12 +670,5 @@ export default {
     }
   }
 }
-/* parser-loading */
-.parser-loading {
-  .title {
-    color: #5d7790;
-    font-size: 2rem;
-    line-height: 2.5rem;
-  }
-}
+
 </style>
