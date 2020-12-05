@@ -1,30 +1,28 @@
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const firebaseAdmin = require('firebase-admin');
-
-firebaseAdmin.initializeApp({
-  credential: firebaseAdmin.credential.applicationDefault(),
-  databaseURL: 'https://sound-whale.firebaseio.com',
-});
-const firebaseStorage = firebaseAdmin.storage().bucket('sound-whale.appspot.com');
-const firebaseFirestore = firebaseAdmin.firestore().collection('music');
-
+const ytdl = require('youtube-dl');
+const { promisify } = require('util');
 const parseFilename = require('../../utils/parseFilename');
+const { uploadMetaData, uploadFileToStore } = require('../../services/firebase');
 
-// 1 hour
-const REMOVE_FILE_TIMER = 60000000 * 6;
-// const REMOVE_FILE_TIMER = 5000;
+// in minutes
+const YT_MAX_DURATION = 15;
 
 const postSplitMusic = async ctx => {
   console.log('postSplitMusic: enter');
   const { path: filePath, destination } = ctx.request.file;
   const { filename, fileExtension } = parseFilename(filePath);
 
-  // upload to firebase-store
-  firebaseStorage.upload(filePath)
-    .then(() => console.log('Init track has been uploaded to the firebase storage'))
-    .catch(() => console.log('Init track upload to the firebase storage was FAILED!'));
+  const originalUrl = await uploadFileToStore(
+    filePath,
+    `${filename}.${fileExtension}`,
+    filename,
+    filename,
+    fileExtension,
+    'Original Track',
+  );
+  ctx.assert(originalUrl, 'Can\'t get original file URL');
 
   // split music
   const splitProcess = execFile('sh', [path.resolve(__dirname, '../../sh/split_music.sh')], {
@@ -54,93 +52,54 @@ const postSplitMusic = async ctx => {
 
   // upload parsed music to firebase
   // accompaniment
-  const firebaseAccompaniment = firebaseStorage.upload(`${destination}/${filename}/accompaniment.${fileExtension}`, {
-    destination: `${filename}/accompaniment.${fileExtension}`,
-  })
-    .then(() => console.log('Parsed accompaniment uploaded to the firebase storage'));
+  const accompanimentUrl = await uploadFileToStore(
+    `${destination}/${filename}/accompaniment.${fileExtension}`,
+    `${filename}/accompaniment.${fileExtension}`,
+    filename,
+    'accompaniment',
+    fileExtension,
+    'Parsed accompaniment',
+  );
+  ctx.assert(accompanimentUrl, 'Can\'t get accompaniment file URL');
 
-  // vocals
-  const firebaseVocals = firebaseStorage.upload(`${destination}/${filename}/vocals.${fileExtension}`, {
-    destination: `${filename}/vocals.${fileExtension}`,
-  })
-    .then(() => console.log('Parsed vocals uploaded to the firebase storage'));
+  const vocalsUrl = await uploadFileToStore(
+    `${destination}/${filename}/vocals.${fileExtension}`,
+    `${filename}/vocals.${fileExtension}`,
+    filename,
+    'vocals',
+    fileExtension,
+    'Parsed vocals',
+  );
+  ctx.assert(accompanimentUrl, 'Can\'t get vocals file URL');
 
-  // firebaseParsed Promise
-  const firebaseParsedPromise = Promise.all([firebaseAccompaniment, firebaseVocals]);
-
-  Promise.any([
-    firebaseParsedPromise,
-    new Promise(resolve => setTimeout(resolve, REMOVE_FILE_TIMER)),
+  Promise.all([
+    promisify(fs.unlink)(filePath),
+    // promisify(fs.rmdir)(path.resolve(destination, `/${filename}`)),
+    promisify(fs.rm)(path.resolve(destination, `/${filename}`), { recursive: true, force: true }),
   ])
-    .then(() => {
-      fs.unlink(filePath, (err) => {
-        if (err) {
-          console.log(err);
-        }
-      });
-      fs.rm(path.resolve(destination, `/${filename}`), { recursive: true, force: true }, (err) => {
-        if (err) {
-          console.log(err);
-        }
-      });
-      console.log(`${filename} has been deleted out of the server!`);
-    });
+    .then(() => console.log(`${filename} has been deleted out of the server!`));
 
-  // add meta-data to firebase realtime db
-  const originalUrl = await firebaseStorage.file(`${filename}.${fileExtension}`).getSignedUrl({
-    action: 'read',
-    expires: Date.now() + 316224000000,
-    responseDisposition: `attachment; filename="${filename}.${fileExtension}"`,
-  });
-  const vocalsUrl = await firebaseStorage.file(`${filename}/vocals.${fileExtension}`).getSignedUrl({
-    action: 'read',
-    expires: Date.now() + 316224000000,
-    responseDisposition: `attachment; filename="vocals.${fileExtension}"`,
-  });
-  const accompanimentUrl = await firebaseStorage.file(`${filename}/accompaniment.${fileExtension}`).getSignedUrl({
-    action: 'read',
-    expires: Date.now() + 316224000000,
-    responseDisposition: `attachment; filename="accompaniment.${fileExtension}"`,
-  });
-  const firestoreObject = {
+  // rm audios from server
+  fs.unlink(filePath, () => console.log('Delete ORIGINAL file from server'));
+  fs.rm(path.resolve(destination, filename), {
+    recursive: true,
+    force: true,
+  }, () => console.log('Delete PARSED files from server'));
+
+  const metaDataUploaded = uploadMetaData(filename, {
     name: `${filename}.${fileExtension}`,
     uploadTime: Date.now(),
     originalUrl: originalUrl[0],
     vocalsUrl: vocalsUrl[0],
     accompanimentUrl: accompanimentUrl[0],
-  };
-  firebaseFirestore
-    .doc(filename)
-    .set(firestoreObject)
-    .then(() => console.log(`${filename} has been saved to firestore!`))
-    .catch(() => console.log(`${filename} saving to firestore has been FAILED!`));
+  });
+  ctx.assert(metaDataUploaded, 'Can\'t upload meta-data');
 
-  // remove files from firebase
-  setTimeout(() => {
-    Promise.all([
-      firebaseStorage.deleteFiles({ directory: `${filename}` }),
-      firebaseStorage.deleteFiles({ prefix: `${filename}.${fileExtension}` }),
-      firebaseFirestore.doc(filename).delete(),
-    ])
-      .then(() => console.log(`${filename} has been deleted from firebase`))
-      .catch(() => console.log(`${filename} has NOT been deleted from firebase!`));
-  }, REMOVE_FILE_TIMER);
-
-  ctx.body = firestoreObject;
-};
-
-const getPlaceholders = async ctx => {
-  // get info about past tracks
-  let existingMusic = fs.readdirSync(path.resolve(__dirname, '../../../dist/static/music'))
-    .filter(file => (file.endsWith('.mp3') || file.endsWith('.wav')));
-
-  // push placeholders if there are nothing.
-  while (existingMusic.length < 3) {
-    existingMusic.push(`/placeholders/${3 - existingMusic.length}.mp3`);
-  }
-  existingMusic = existingMusic.map(track => `/static/music/${track}`);
-
-  ctx.body = existingMusic;
+  ctx.body = [
+    { name: 'Original', url: originalUrl },
+    { name: 'Accompaniment', url: accompanimentUrl },
+    { name: 'Vocals', url: vocalsUrl },
+  ];
 };
 
 function promiseFromChildProcess(child) {
@@ -163,7 +122,21 @@ function promiseFromChildProcess(child) {
   }));
 }
 
+const postYoutubeUrl = async ctx => {
+  const { ytUrl } = ctx.request.body;
+  const getInfo = promisify(ytdl.getInfo);
+  const clipInfo = await getInfo(ytUrl, null, null);
+
+  ctx.assert(clipInfo, 'Wrong YT-URL. Can\'t get info');
+  // eslint-disable-next-line no-underscore-dangle
+  ctx.assert(clipInfo._duration_raw < (YT_MAX_DURATION * 60), `Clip are longer than ${YT_MAX_DURATION} minutes`);
+
+  ctx.body = {
+    title: clipInfo,
+  };
+};
+
 module.exports = {
   postSplitMusic,
-  getPlaceholders,
+  postYoutubeUrl,
 };

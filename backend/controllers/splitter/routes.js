@@ -14,7 +14,8 @@ const storageConfig = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const { filename, fileExtension } = parseFilename(file.originalname);
-
+    console.log(fileExtension);
+    if (fileExtension !== 'mp3' && fileExtension !== 'wav') return cb('Error: wrong type');
     const curDate = (new Date()).valueOf().toString();
     const randomSalt = Math.random().toString();
     const hashName = crypto.createHash('sha256')
@@ -27,4 +28,4 @@ const storageConfig = multer.diskStorage({
 
 module.exports = new Router({ prefix: '/api/splitter' })
   .post('/', multer({ storage: storageConfig }).single('music'), actions.postSplitMusic)
-  .get('/placeholders', actions.getPlaceholders);
+  .post('/youtube', actions.postYoutubeUrl);

@@ -97,9 +97,9 @@
                   <div class="name">YouTube</div>
                 </div>
               </div>
-              <input type="text">
+              <input type="text" v-model="ytUrl">
             </div>
-            <CoreButton>Load</CoreButton>
+            <CoreButton @click="loadYTTrack">Load</CoreButton>
           </form>
           <transition name="appear" mode="out-in" @enter="initDefaultPlayer">
             <div v-show="chosenFile" class="preplay-container">
@@ -137,6 +137,7 @@ export default {
     title: 'Splitter',
   },
   data: () => ({
+    ytUrl: '',
     canDragNDrop: false,
     parseWaiting: false,
     fileLimits: {
@@ -279,14 +280,11 @@ export default {
       })
         .then(({ data }) => {
           this.parseWaiting = false;
-          this.parsedResult = [
-            { name: 'Original', url: data.originalUrl },
-            { name: 'Accompaniment', url: data.accompanimentUrl },
-            { name: 'Vocals', url: data.vocalsUrl },
-          ];
+          this.parsedResult = data;
         })
         .catch(() => {
           this.parseWaiting = false;
+          this.chosenFile = null;
           this.errorMsg = 'Something went wrong with your file.';
         });
 
@@ -365,6 +363,16 @@ export default {
         audio.parentNode.style.width = '100%';
         audio.parentNode.style.borderRadius = '8px';
       });
+    },
+    loadYTTrack() {
+      axios.post('/api/splitter/youtube', { ytUrl: this.ytUrl })
+        .then(res => {
+          this.errorMsg = '';
+          console.log(res.data);
+        })
+        .catch(() => {
+          this.errorMsg = 'Try another link.';
+        });
     },
   },
   components: {

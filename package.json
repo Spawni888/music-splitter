@@ -28,7 +28,8 @@
     "recursive-readdir-sync": "^1.0.6",
     "vue": "^2.6.11",
     "vue-meta": "^2.4.0",
-    "vue-router": "^3.2.0"
+    "vue-router": "^3.2.0",
+    "youtube-dl": "^3.0.2"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "~4.5.0",
