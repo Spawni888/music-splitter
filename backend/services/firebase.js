@@ -1,9 +1,6 @@
 const firebaseAdmin = require('firebase-admin');
-// 1 hour
-// const REMOVE_FILE_TIMER = 60000000 * 6;
+const { REMOVE_FILE_TIMER } = require('../utils/constants');
 
-// 24 hours
-const REMOVE_FILE_TIMER = 60000000 * 6 * 24;
 firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.applicationDefault(),
   databaseURL: 'https://sound-whale.firebaseio.com',
@@ -43,7 +40,6 @@ const uploadFileToStore = async (
       firebaseStorage.deleteFiles(deleteOptions)
         .then(() => console.log(`${finalFilename} has been deleted from firebase storage`))
         .catch((err) => {
-          // console.log(`${finalFilename} has NOT been deleted from firebase!`)
           console.log(err);
         });
     }, REMOVE_FILE_TIMER);

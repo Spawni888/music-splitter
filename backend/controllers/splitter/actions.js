@@ -1,13 +1,15 @@
+const stream = require('stream');
+
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const ytdl = require('youtube-dl');
+// const ytdl = require('youtube-dl');
+const ytdl = require('ytdl-core');
 const { promisify } = require('util');
 const parseFilename = require('../../utils/parseFilename');
 const { uploadMetaData, uploadFileToStore } = require('../../services/firebase');
-
-// in minutes
-const YT_MAX_DURATION = 15;
+const createHash = require('../../utils/createHash');
+const { YT_MAX_DURATION } = require('../../utils/constants');
 
 const postSplitMusic = async ctx => {
   console.log('postSplitMusic: enter');
@@ -86,12 +88,12 @@ const postSplitMusic = async ctx => {
     force: true,
   }, () => console.log('Delete PARSED files from server'));
 
-  const metaDataUploaded = uploadMetaData(filename, {
+  const metaDataUploaded = await uploadMetaData(filename, {
     name: `${filename}.${fileExtension}`,
     uploadTime: Date.now(),
-    originalUrl: originalUrl[0],
-    vocalsUrl: vocalsUrl[0],
-    accompanimentUrl: accompanimentUrl[0],
+    originalUrl,
+    vocalsUrl,
+    accompanimentUrl,
   });
   ctx.assert(metaDataUploaded, 'Can\'t upload meta-data');
 
@@ -124,16 +126,26 @@ function promiseFromChildProcess(child) {
 
 const postYoutubeUrl = async ctx => {
   const { ytUrl } = ctx.request.body;
-  const getInfo = promisify(ytdl.getInfo);
-  const clipInfo = await getInfo(ytUrl, null, null);
+  const videoInfo = await ytdl.getInfo(ytUrl);
 
-  ctx.assert(clipInfo, 'Wrong YT-URL. Can\'t get info');
-  // eslint-disable-next-line no-underscore-dangle
-  ctx.assert(clipInfo._duration_raw < (YT_MAX_DURATION * 60), `Clip are longer than ${YT_MAX_DURATION} minutes`);
+  ctx.assert(videoInfo, 'Wrong yt-link!');
 
-  ctx.body = {
-    title: clipInfo,
-  };
+  const videoDuration = videoInfo.videoDetails.lengthSeconds;
+  const videoTitle = videoInfo.videoDetails.title;
+  ctx.assert(videoDuration < (YT_MAX_DURATION * 60), `Video longer than ${YT_MAX_DURATION} minutes!`);
+
+  const format = ytdl.chooseFormat(videoInfo.formats, { quality: 'highestvideo' });
+  console.log('Format found!', format);
+
+  const finished = promisify(stream.finished);
+  const writeStream = fs.createWriteStream(path.resolve(__dirname, `../../../music/${videoTitle}.mp4`));
+
+  ytdl(ytUrl, { format })
+    .pipe(writeStream);
+  await finished(writeStream);
+  console.log('finished');
+
+  ctx.body = videoInfo;
 };
 
 module.exports = {

@@ -558,6 +558,7 @@ export default {
           width: 100%;
           box-shadow: 0 2px 15px rgba(0,0,0,.1);
           .logo-container {
+            text-decoration: none;
             cursor: default;
             border-top-left-radius: 8px;
             border-bottom-left-radius: 8px;
