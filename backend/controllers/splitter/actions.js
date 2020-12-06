@@ -1,55 +1,67 @@
-const stream = require('stream');
-
-const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-// const ytdl = require('youtube-dl');
+const axios = require('axios');
 const ytdl = require('ytdl-core');
 const { promisify } = require('util');
+const pipeline = promisify(require('stream').pipeline);
 const parseFilename = require('../../utils/parseFilename');
 const { uploadMetaData, uploadFileToStore } = require('../../services/firebase');
+const { splitMusic, convertFile } = require('../../utils/childProcesses');
 const createHash = require('../../utils/createHash');
 const { YT_MAX_DURATION } = require('../../utils/constants');
 
 const postSplitMusic = async ctx => {
-  console.log('postSplitMusic: enter');
-  const { path: filePath, destination } = ctx.request.file;
-  const { filename, fileExtension } = parseFilename(filePath);
+  const destination = path.resolve(__dirname, '../../../music/');
+  let originalUrl;
+  let filePath;
+  let filename;
+  let fileExtension;
 
-  const originalUrl = await uploadFileToStore(
-    filePath,
-    `${filename}.${fileExtension}`,
-    filename,
-    filename,
-    fileExtension,
-    'Original Track',
-  );
-  ctx.assert(originalUrl, 'Can\'t get original file URL');
+  // youtube link
+  if (ctx.request.body.originalUrl) {
+    originalUrl = ctx.request.body.originalUrl;
+    filename = ctx.request.body.filename;
+    fileExtension = 'mp3';
+    filePath = path.resolve(destination, `${filename}.${fileExtension}`);
+
+    const res = await axios.get(originalUrl, { responseType: 'stream' });
+    res.data.pipe(fs.createWriteStream(filePath));
+  } else {
+  // file
+    filePath = ctx.request.file.path;
+    const fileInfo = parseFilename(filePath);
+    filename = fileInfo.filename;
+    fileExtension = fileInfo.fileExtension;
+
+    originalUrl = await uploadFileToStore(
+      filePath,
+      `${filename}.${fileExtension}`,
+      filename,
+      filename,
+      fileExtension,
+      'Original Track',
+    );
+
+    ctx.assert(originalUrl, 'Can\'t get original file URL');
+  }
 
   // split music
-  const splitProcess = execFile('sh', [path.resolve(__dirname, '../../sh/split_music.sh')], {
-    env: {
-      AUDIO_INPUT: filePath,
-      AUDIO_OUTPUT: destination,
-      OUTPUT_ACCOMPANIMENT: `${destination}/${filename}/accompaniment.wav`,
-      OUTPUT_VOCALS: `${destination}/${filename}/vocals.wav`,
-    },
-  });
-  // eslint-disable-next-line no-use-before-define
-  await promiseFromChildProcess(splitProcess);
+  const musicSplitted = await splitMusic(filePath, destination);
+  ctx.assert(musicSplitted === true, 'Music wasn\'t splitted');
 
   // convert result to needed format
   if (fileExtension !== 'wav') {
-    const convertProcess = execFile('sh', [path.resolve(__dirname, '../../sh/convert.sh')], {
-      env: {
-        INPUT_ACCOMPANIMENT: `${destination}/${filename}/accompaniment.wav`,
-        INPUT_VOCALS: `${destination}/${filename}/vocals.wav`,
-        OUTPUT_ACCOMPANIMENT: `${destination}/${filename}/accompaniment.${fileExtension}`,
-        OUTPUT_VOCALS: `${destination}/${filename}/vocals.${fileExtension}`,
-      },
-    });
-    // eslint-disable-next-line no-use-before-define
-    await promiseFromChildProcess(convertProcess);
+    const accompanimentConverted = await convertFile(
+      `${destination}/${filename}/accompaniment.wav`,
+      `${destination}/${filename}/accompaniment.${fileExtension}`,
+    );
+    const vocalsConverted = await convertFile(
+      `${destination}/${filename}/vocals.wav`,
+      `${destination}/${filename}/vocals.${fileExtension}`,
+    );
+
+    ctx.assert(accompanimentConverted === true, 'Accompaniment wasn\'t converted!');
+    ctx.assert(vocalsConverted === true, 'Vocals wasn\'t converted!');
   }
 
   // upload parsed music to firebase
@@ -74,13 +86,6 @@ const postSplitMusic = async ctx => {
   );
   ctx.assert(accompanimentUrl, 'Can\'t get vocals file URL');
 
-  Promise.all([
-    promisify(fs.unlink)(filePath),
-    // promisify(fs.rmdir)(path.resolve(destination, `/${filename}`)),
-    promisify(fs.rm)(path.resolve(destination, `/${filename}`), { recursive: true, force: true }),
-  ])
-    .then(() => console.log(`${filename} has been deleted out of the server!`));
-
   // rm audios from server
   fs.unlink(filePath, () => console.log('Delete ORIGINAL file from server'));
   fs.rm(path.resolve(destination, filename), {
@@ -88,6 +93,7 @@ const postSplitMusic = async ctx => {
     force: true,
   }, () => console.log('Delete PARSED files from server'));
 
+  // upload meta-data to firestore
   const metaDataUploaded = await uploadMetaData(filename, {
     name: `${filename}.${fileExtension}`,
     uploadTime: Date.now(),
@@ -104,48 +110,50 @@ const postSplitMusic = async ctx => {
   ];
 };
 
-function promiseFromChildProcess(child) {
-  return new Promise(((resolve, reject) => {
-    child.stdout.on('data', (data) => {
-      console.log(`stdout: ${data}`);
-    });
-    child.stderr.on('data', (data) => {
-      console.error(`child log: ${data}`);
-    });
-    child.on('close', (code) => {
-      console.log(`child process exited with code ${code}`);
-      if (code !== 0) {
-        reject();
-      }
-    });
-
-    child.on('error', reject);
-    child.on('close', resolve);
-  }));
-}
-
 const postYoutubeUrl = async ctx => {
   const { ytUrl } = ctx.request.body;
   const videoInfo = await ytdl.getInfo(ytUrl);
-
   ctx.assert(videoInfo, 'Wrong yt-link!');
 
   const videoDuration = videoInfo.videoDetails.lengthSeconds;
   const videoTitle = videoInfo.videoDetails.title;
   ctx.assert(videoDuration < (YT_MAX_DURATION * 60), `Video longer than ${YT_MAX_DURATION} minutes!`);
 
-  const format = ytdl.chooseFormat(videoInfo.formats, { quality: 'highestvideo' });
-  console.log('Format found!', format);
+  const format = ytdl.chooseFormat(videoInfo.formats, { quality: 'highestaudio' });
+  ctx.assert(format, 'Can\'t get info about audio');
 
-  const finished = promisify(stream.finished);
-  const writeStream = fs.createWriteStream(path.resolve(__dirname, `../../../music/${videoTitle}.mp4`));
+  // download file
+  const filename = `${videoTitle}-${createHash()}`;
+  const destination = path.resolve(__dirname, '../../../music/');
+  const filePath = path.resolve(destination, `${filename}.mp4`);
 
-  ytdl(ytUrl, { format })
-    .pipe(writeStream);
-  await finished(writeStream);
-  console.log('finished');
+  await pipeline(
+    ytdl(ytUrl, { format }),
+    fs.createWriteStream(filePath),
+  );
+  // convert file to mp3
+  const fileConverted = await convertFile(filePath, path.resolve(destination, `${filename}.mp3`));
+  ctx.assert(fileConverted, 'File wasn\'t converted!');
 
-  ctx.body = videoInfo;
+  // upload file to store
+  const originalUrl = await uploadFileToStore(
+    filePath,
+    `${filename}.mp3`,
+    filename,
+    filename,
+    'mp3',
+  );
+  ctx.assert(originalUrl, 'Can\'t get originalUrl!');
+
+  // upload Meta-data
+  const metaDataUploaded = uploadMetaData(filename, { originalUrl });
+  ctx.assert(metaDataUploaded, 'Can\'t upload meta-data');
+
+  // rm files from server
+  fs.unlink(filePath, () => console.log('Delete ORIGINAL MP4 file from server'));
+  fs.unlink(`${filename}.mp3`, () => console.log('Delete ORIGINAL MP3 file from server'));
+
+  ctx.body = { originalUrl, filename };
 };
 
 module.exports = {

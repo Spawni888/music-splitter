@@ -1,5 +1,5 @@
 <template>
-  <div class="core-btn" @click.self="$emit('click')">
+  <div class="core-btn" @click="$emit('click')">
     <slot/>
   </div>
 </template>
@@ -12,7 +12,11 @@ export default {
 
 <style scoped lang="scss">
   .core-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     min-width: 84px;
+    min-height: 50px;
     border-radius: 4px;
     cursor: pointer;
     background-color: #00B3FF;

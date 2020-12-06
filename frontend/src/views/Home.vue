@@ -99,14 +99,21 @@
               </div>
               <input type="text" v-model="ytUrl">
             </div>
-            <CoreButton @click="loadYTTrack">Load</CoreButton>
+            <CoreButton @click="loadYTAudio">
+              <transition mode="out-in" name="appear">
+                <div :key="ytUrlLoading" v-if="ytUrlLoading" class="yt-loader" />
+                <div key="Load" v-else>Load</div>
+              </transition>
+            </CoreButton>
           </form>
           <transition name="appear" mode="out-in" @enter="initDefaultPlayer">
-            <div v-show="chosenFile" class="preplay-container">
+            <div v-show="chosenFile || ytFirebase.originalUrl" class="preplay-container">
               <div class="audio-container">
                 <audio class="default-player" ref="defaultPlayer" preload="auto"></audio>
               </div>
-              <CoreButton @click="parseFile">Parse</CoreButton>
+              <CoreButton @click="parseFile">
+                Parse
+              </CoreButton>
             </div>
           </transition>
         </section>
@@ -138,6 +145,11 @@ export default {
   },
   data: () => ({
     ytUrl: '',
+    ytUrlLoading: false,
+    ytFirebase: {
+      originalUrl: null,
+      filename: null,
+    },
     canDragNDrop: false,
     parseWaiting: false,
     fileLimits: {
@@ -158,6 +170,13 @@ export default {
     this.getLoadingTracks();
 
     this.initDragNDrop();
+  },
+  computed: {
+    YTUrlIsValid() {
+      const YTRegExp = /http(?:s?):\/\/(?:www\.)?youtu(?:be\.com\/watch\?v=|\.be\/)([\w\-_]*)(&(amp;)?[\w?=]*)?/gi;
+
+      return YTRegExp.test(this.ytUrl);
+    },
   },
   methods: {
     initFirebase() {
@@ -253,6 +272,11 @@ export default {
       return false;
     },
     loadFile(e) {
+      if (this.ytUrlLoading) {
+        this.errorMsg = 'Wait! YouTube audio is loading now!';
+        return;
+      }
+
       this.chosenFile = e.dataTransfer
         ? e.dataTransfer.files[0]
         : e.target.files[0];
@@ -260,6 +284,7 @@ export default {
 
       if (validFile) {
         this.$refs.defaultPlayer.src = URL.createObjectURL(this.chosenFile);
+        this.ytFirebase.originalUrl = null;
       }
     },
     setError(msg) {
@@ -267,27 +292,43 @@ export default {
       this.$refs.defaultPlayer.pause();
     },
     parseFile() {
-      const formData = new FormData();
-
-      formData.append('music', this.chosenFile);
-      axios.request({
-        method: 'post',
-        url: '/api/splitter',
-        data: formData,
-        header: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
-        .then(({ data }) => {
-          this.parseWaiting = false;
-          this.parsedResult = data;
+      if (this.ytFirebase.originalUrl) {
+        axios.request({
+          method: 'post',
+          url: '/api/splitter',
+          data: this.ytFirebase,
         })
-        .catch(() => {
-          this.parseWaiting = false;
-          this.chosenFile = null;
-          this.errorMsg = 'Something went wrong with your file.';
-        });
+          .then(({ data }) => {
+            this.parseWaiting = false;
+            this.parsedResult = data;
+          })
+          .catch(() => {
+            this.parseWaiting = false;
+            this.chosenFile = null;
+            this.errorMsg = 'Something went wrong with your file.';
+          });
+      } else {
+        const formData = new FormData();
 
+        formData.append('music', this.chosenFile);
+        axios.request({
+          method: 'post',
+          url: '/api/splitter',
+          data: formData,
+          header: {
+            'Content-Type': 'multipart/form-data',
+          },
+        })
+          .then(({ data }) => {
+            this.parseWaiting = false;
+            this.parsedResult = data;
+          })
+          .catch(() => {
+            this.parseWaiting = false;
+            this.chosenFile = null;
+            this.errorMsg = 'Something went wrong with your file.';
+          });
+      }
       this.parseWaiting = true;
     },
     initPlayers() {
@@ -348,6 +389,8 @@ export default {
     resetApp() {
       this.parsedResult = [];
       this.resultPlayers = [];
+      this.loadingAudiosLinks = [];
+      this.ytFirebase.originalUrl = null;
       this.chosenFile = null;
       this.getLoadingTracks();
     },
@@ -364,15 +407,26 @@ export default {
         audio.parentNode.style.borderRadius = '8px';
       });
     },
-    loadYTTrack() {
+    loadYTAudio() {
+      if (this.ytUrlLoading) return;
+      if (!this.YTUrlIsValid) {
+        this.errorMsg = 'Pass valid YouTube link!';
+        return;
+      }
       axios.post('/api/splitter/youtube', { ytUrl: this.ytUrl })
         .then(res => {
           this.errorMsg = '';
-          console.log(res.data);
+          this.$refs.defaultPlayer.src = res.data.originalUrl;
+          this.ytFirebase = res.data;
+          this.chosenFile = null;
+          this.ytUrlLoading = false;
         })
         .catch(() => {
           this.errorMsg = 'Try another link.';
+          this.ytUrlLoading = false;
         });
+      this.errorMsg = '';
+      this.ytUrlLoading = true;
     },
   },
   components: {
@@ -386,8 +440,10 @@ export default {
   height: 100%;
   display: flex;
   flex-direction: column;
+
   .core-container {
     justify-content: space-between;
+
     .about {
       margin-right: 48px;
       max-width: 400px;
@@ -420,8 +476,9 @@ export default {
       padding-bottom: 1px;
       text-align: center;
       height: 400px;
+
       .box {
-        box-shadow: 0 2px 15px rgba(0,0,0,.1);
+        box-shadow: 0 2px 15px rgba(0, 0, 0, .1);
         margin-bottom: 20px;
         background-color: #2fbbfe;
         transition: .2s ease-in-out;
@@ -496,6 +553,7 @@ export default {
           display: none;
         }
       }
+
       .error {
         background-color: #ec375c;
       }
@@ -505,6 +563,7 @@ export default {
           outline: 4px dashed #EBF9FF;
           outline-offset: -15px;
           transition: .2s ease-in-out;
+
           img {
             transform: scale(1.2);
           }
@@ -522,41 +581,49 @@ export default {
           display: inline;
         }
       }
+
       .preplay-container {
         width: 100%;
         display: flex;
+
         .audio-container {
-          box-shadow: 0 2px 15px rgba(0,0,0,.1);
+          box-shadow: 0 2px 15px rgba(0, 0, 0, .1);
           border-radius: 8px;
           width: 100%;
         }
+
         .core-btn {
           margin-left: 20px;
         }
       }
+
       &__title {
         color: #5d7790;
         font-size: 2rem;
         line-height: 2.5rem;
         margin-bottom: 40px;
       }
+
       &-paragraph {
         font-size: 1rem;
         margin: 0 0 24px;
         text-align: left;
         line-height: 1.75;
       }
+
       .youtube {
         margin-bottom: 20px;
 
         border-radius: 8px;
         width: 100%;
         display: flex;
+
         &__input {
           border-radius: 8px;
           display: flex;
           width: 100%;
-          box-shadow: 0 2px 15px rgba(0,0,0,.1);
+          box-shadow: 0 2px 15px rgba(0, 0, 0, .1);
+
           .logo-container {
             text-decoration: none;
             cursor: default;
@@ -571,10 +638,12 @@ export default {
               display: flex;
               align-items: center;
               padding: 10px;
+
               .name {
                 color: #ffffff;
                 font-size: 0.8rem;
               }
+
               img {
                 margin-right: 5px;
                 max-width: 20px;
@@ -584,6 +653,7 @@ export default {
               }
             }
           }
+
           input {
             color: #4a5764;
             text-overflow: ellipsis;
@@ -597,6 +667,7 @@ export default {
             border: none;
           }
         }
+
         .core-btn {
           margin-left: 20px;
         }
@@ -606,6 +677,7 @@ export default {
     /* parser-loading */
     .parser-loading {
       height: auto;
+
       .content__title {
         .loadingDots {
           text-align: start;
@@ -613,8 +685,10 @@ export default {
           width: 20px;
         }
       }
+
       .loading-audios {
         width: 100%;
+
         .audio-case {
           width: 100%;
           margin-bottom: 18px;
@@ -623,24 +697,30 @@ export default {
         }
       }
     }
+
     // parsed result
     .parsed-result {
       .content__title {
         margin-bottom: 10px;
       }
+
       .content__paragraph {
         display: none;
         margin-bottom: 0;
       }
+
       .parsed-audios {
         width: 100%;
+
         .result-audio {
           display: flex;
           flex-wrap: wrap;
+
           .audio-name {
             margin: 20px 0 10px;
             flex: 1 1 100%;
           }
+
           .audio-case {
             box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
             border-radius: 8px;
@@ -650,6 +730,7 @@ export default {
           }
         }
       }
+
       .btn-container {
         margin-top: 20px;
         display: flex;
@@ -657,97 +738,68 @@ export default {
       }
     }
   }
-  .loader {
-    height: 100%;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    .lds-roller {
-      display: inline-block;
-      position: relative;
-      width: 80px;
-      height: 80px;
+  .yt-loader {
+    font-size: 2px;
+    margin: 0 auto;
+    text-indent: -9999em;
+    width: 11em;
+    height: 11em;
+    border-radius: 50%;
+    background: #ffffff;
+    background: -moz-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+    background: -webkit-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+    background: -o-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+    background: -ms-linear-gradient(left, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+    background: linear-gradient(to right, #ffffff 10%, rgba(255, 255, 255, 0) 42%);
+    position: relative;
+    -webkit-animation: load3 1.4s infinite linear;
+    animation: load3 1.4s infinite linear;
+    -webkit-transform: translateZ(0);
+    -ms-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+  .yt-loader:before {
+    width: 50%;
+    height: 50%;
+    background: #ffffff;
+    border-radius: 100% 0 0 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    content: '';
+  }
+  .yt-loader:after {
+    background: $coreColor;
+    width: 75%;
+    height: 75%;
+    border-radius: 50%;
+    content: '';
+    margin: auto;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+  }
+  @-webkit-keyframes load3 {
+    0% {
+      -webkit-transform: rotate(0deg);
+      transform: rotate(0deg);
     }
-    .lds-roller div {
-      animation: lds-roller 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-      transform-origin: 40px 40px;
+    100% {
+      -webkit-transform: rotate(360deg);
+      transform: rotate(360deg);
     }
-    .lds-roller div:after {
-      content: " ";
-      display: block;
-      position: absolute;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #fff;
-      margin: -4px 0 0 -4px;
+  }
+  @keyframes load3 {
+    0% {
+      -webkit-transform: rotate(0deg);
+      transform: rotate(0deg);
     }
-    .lds-roller div:nth-child(1) {
-      animation-delay: -0.036s;
-    }
-    .lds-roller div:nth-child(1):after {
-      top: 63px;
-      left: 63px;
-    }
-    .lds-roller div:nth-child(2) {
-      animation-delay: -0.072s;
-    }
-    .lds-roller div:nth-child(2):after {
-      top: 68px;
-      left: 56px;
-    }
-    .lds-roller div:nth-child(3) {
-      animation-delay: -0.108s;
-    }
-    .lds-roller div:nth-child(3):after {
-      top: 71px;
-      left: 48px;
-    }
-    .lds-roller div:nth-child(4) {
-      animation-delay: -0.144s;
-    }
-    .lds-roller div:nth-child(4):after {
-      top: 72px;
-      left: 40px;
-    }
-    .lds-roller div:nth-child(5) {
-      animation-delay: -0.18s;
-    }
-    .lds-roller div:nth-child(5):after {
-      top: 71px;
-      left: 32px;
-    }
-    .lds-roller div:nth-child(6) {
-      animation-delay: -0.216s;
-    }
-    .lds-roller div:nth-child(6):after {
-      top: 68px;
-      left: 24px;
-    }
-    .lds-roller div:nth-child(7) {
-      animation-delay: -0.252s;
-    }
-    .lds-roller div:nth-child(7):after {
-      top: 63px;
-      left: 17px;
-    }
-    .lds-roller div:nth-child(8) {
-      animation-delay: -0.288s;
-    }
-    .lds-roller div:nth-child(8):after {
-      top: 56px;
-      left: 12px;
-    }
-    @keyframes lds-roller {
-      0% {
-        transform: rotate(0deg);
-      }
-      100% {
-        transform: rotate(360deg);
-      }
+    100% {
+      -webkit-transform: rotate(360deg);
+      transform: rotate(360deg);
     }
   }
 }
-
 </style>
