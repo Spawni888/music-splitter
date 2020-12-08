@@ -14,6 +14,7 @@
       v-else-if="audioIsSplitting"
       :key="audioIsSplitting"
       class="content"
+      @set-players-style="setPlayersStyle"
       @play-one-same-time="playOneSameTime"
       :loading-audios="loadingAudios"
     />
