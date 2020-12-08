@@ -1,15 +1,15 @@
 import Vue from 'vue';
 import VueRouter from 'vue-router';
 import About from '@/views/About.vue';
-import Home from '@/views/Home.vue';
+import Splitter from '@/views/Splitter.vue';
 
 Vue.use(VueRouter);
 
 const routes = [
   {
     path: '/',
-    name: 'Home',
-    component: Home,
+    name: 'Splitter',
+    component: Splitter,
   },
   {
     path: '/about',
