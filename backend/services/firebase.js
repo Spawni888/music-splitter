@@ -1,5 +1,5 @@
 const firebaseAdmin = require('firebase-admin');
-const { REMOVE_FILE_TIMER } = require('../utils/constants');
+const parseFilename = require('../utils/parseFilename');
 
 firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.applicationDefault(),
@@ -31,19 +31,6 @@ const uploadFileToStore = async (
     });
     console.log(`Got url to ${logName}!`);
 
-    // set delete timer
-    setTimeout(() => {
-      const deleteOptions = finalFilename === filename
-        ? { prefix: `${filename}.${fileExtension}` }
-        : { directory: filename };
-
-      firebaseStorage.deleteFiles(deleteOptions)
-        .then(() => console.log(`${finalFilename} has been deleted from firebase storage`))
-        .catch((err) => {
-          console.log(err);
-        });
-    }, REMOVE_FILE_TIMER);
-
     return url[0];
   } catch (err) {
     return null;
@@ -57,20 +44,40 @@ const uploadMetaData = async (docName, docObj) => {
       .doc(docName)
       .set(docObj);
 
-    // set delete timer
-    setTimeout(() => {
-      firebaseFirestore.doc(docName).delete()
-        .then(() => console.log(`${docName} has been deleted from firestore`))
-        .catch(() => console.log(`${docName} has NOT been deleted from firestore!`));
-    }, REMOVE_FILE_TIMER);
-
     return true;
   } catch (err) {
     return null;
   }
 };
 
+const clearDB = async (saveFilesCount) => {
+  let lastValidDoc;
+  const firestoreSnapshot = await firebaseFirestore.orderBy('uploadTime', 'desc')
+    .limit(saveFilesCount)
+    .get();
+  firestoreSnapshot.forEach(doc => {
+    lastValidDoc = doc;
+  });
+
+  // delete all except `saveFilesCount` last values
+  const snapToDelete = await firebaseFirestore.orderBy('uploadTime').endBefore(lastValidDoc).get();
+  snapToDelete.forEach(doc => {
+    const data = doc.data();
+    const { fileExtension, filename } = parseFilename(data.name);
+
+    // delete from storage;
+    firebaseStorage.deleteFiles({ directory: filename });
+    firebaseStorage.deleteFiles({ prefix: `${filename}.${fileExtension}` });
+    console.log(`remove ${filename} from storage`);
+
+    // delete meta-data
+    doc.ref.delete();
+    console.log(`remove ${filename} meta-data from firestore`);
+  });
+};
+
 module.exports = {
   uploadFileToStore,
   uploadMetaData,
+  clearDB,
 };

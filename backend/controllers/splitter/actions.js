@@ -5,7 +5,7 @@ const ytdl = require('ytdl-core');
 const { promisify } = require('util');
 const pipeline = promisify(require('stream').pipeline);
 const parseFilename = require('../../utils/parseFilename');
-const { uploadMetaData, uploadFileToStore } = require('../../services/firebase');
+const { uploadMetaData, uploadFileToStore, clearDB } = require('../../services/firebase');
 const { splitMusic, convertFile } = require('../../utils/childProcesses');
 const createHash = require('../../utils/createHash');
 const { YT_MAX_DURATION } = require('../../utils/constants');
@@ -26,8 +26,9 @@ const postSplitMusic = async ctx => {
 
     const res = await axios.get(originalUrl, { responseType: 'stream' });
     res.data.pipe(fs.createWriteStream(filePath));
-  } else {
-  // file
+  }
+  else {
+    // file
     filePath = ctx.request.file.path;
     const fileInfo = parseFilename(filePath);
     filename = fileInfo.filename;
@@ -103,6 +104,9 @@ const postSplitMusic = async ctx => {
   });
   ctx.assert(metaDataUploaded, 'Can\'t upload meta-data');
 
+  // clear files except last 6 files;
+  await clearDB(6);
+
   ctx.body = [
     { name: 'Original', url: originalUrl },
     { name: 'Accompaniment', url: accompanimentUrl },
@@ -146,7 +150,10 @@ const postYoutubeUrl = async ctx => {
   ctx.assert(originalUrl, 'Can\'t get originalUrl!');
 
   // upload Meta-data
-  const metaDataUploaded = uploadMetaData(filename, { originalUrl });
+  const metaDataUploaded = uploadMetaData(filename, {
+    originalUrl,
+    uploadTime: Date.now(),
+  });
   ctx.assert(metaDataUploaded, 'Can\'t upload meta-data');
 
   // rm files from server
