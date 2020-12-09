@@ -50,30 +50,39 @@ const uploadMetaData = async (docName, docObj) => {
   }
 };
 
-const clearDB = async (saveFilesCount) => {
-  let lastValidDoc;
-  const firestoreSnapshot = await firebaseFirestore.orderBy('uploadTime', 'desc')
+const clearDB = (saveFilesCount) => {
+  firebaseFirestore.orderBy('uploadTime', 'desc')
     .limit(saveFilesCount)
-    .get();
-  firestoreSnapshot.forEach(doc => {
-    lastValidDoc = doc;
-  });
+    .get()
+    .then(firestoreSnapshot => {
+      let lastValidDoc;
 
-  // delete all except `saveFilesCount` last values
-  const snapToDelete = await firebaseFirestore.orderBy('uploadTime').endBefore(lastValidDoc).get();
-  snapToDelete.forEach(doc => {
-    const data = doc.data();
-    const { fileExtension, filename } = parseFilename(data.name);
+      firestoreSnapshot.forEach(doc => {
+        lastValidDoc = doc;
+      });
 
-    // delete from storage;
-    firebaseStorage.deleteFiles({ directory: filename });
-    firebaseStorage.deleteFiles({ prefix: `${filename}.${fileExtension}` });
-    console.log(`remove ${filename} from storage`);
+      // delete all except `saveFilesCount` last values
+      firebaseFirestore.orderBy('uploadTime').endBefore(lastValidDoc).get()
+        .then(snapToDelete => {
+          snapToDelete.forEach(doc => {
+            const data = doc.data();
+            const { fileExtension, filename } = parseFilename(data.name);
 
-    // delete meta-data
-    doc.ref.delete();
-    console.log(`remove ${filename} meta-data from firestore`);
-  });
+            // delete from storage;
+            Promise.all([
+              firebaseStorage.deleteFiles({ directory: filename }),
+              firebaseStorage.deleteFiles({ prefix: `${filename}.${fileExtension}` }),
+            ])
+              .then(() => console.log(`remove ${filename} from storage`))
+              .catch((err) => console.log(err));
+
+            // delete meta-data
+            doc.ref.delete()
+              .then(() => console.log(`remove ${filename} meta-data from firestore`))
+              .catch((err) => console.log(err));
+          });
+        });
+    });
 };
 
 module.exports = {

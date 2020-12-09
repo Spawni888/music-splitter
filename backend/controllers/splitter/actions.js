@@ -105,7 +105,7 @@ const postSplitMusic = async ctx => {
   ctx.assert(metaDataUploaded, 'Can\'t upload meta-data');
 
   // clear files except last 6 files;
-  await clearDB(6);
+  clearDB(6);
 
   ctx.body = [
     { name: 'Original', url: originalUrl },
