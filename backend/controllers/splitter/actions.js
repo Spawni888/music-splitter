@@ -46,72 +46,76 @@ const postSplitMusic = async ctx => {
     ctx.assert(originalUrl, 'Can\'t get original file URL');
   }
 
-  // split music
-  const musicSplitted = await splitMusic(filePath, destination);
-  ctx.assert(musicSplitted === true, 'Music wasn\'t splitted');
+  // // split music
+  // const musicSplitted = await splitMusic(filePath, destination);
+  // ctx.assert(musicSplitted === true, 'Music wasn\'t splitted');
 
-  // convert result to needed format
-  if (fileExtension !== 'wav') {
-    const accompanimentConverted = await convertFile(
-      `${destination}/${filename}/accompaniment.wav`,
-      `${destination}/${filename}/accompaniment.${fileExtension}`,
-    );
-    const vocalsConverted = await convertFile(
-      `${destination}/${filename}/vocals.wav`,
-      `${destination}/${filename}/vocals.${fileExtension}`,
-    );
-
-    ctx.assert(accompanimentConverted === true, 'Accompaniment wasn\'t converted!');
-    ctx.assert(vocalsConverted === true, 'Vocals wasn\'t converted!');
-  }
-
-  // upload parsed music to firebase
-  // accompaniment
-  const accompanimentUrl = await uploadFileToStore(
-    `${destination}/${filename}/accompaniment.${fileExtension}`,
-    `${filename}/accompaniment.${fileExtension}`,
-    filename,
-    'accompaniment',
-    fileExtension,
-    'Parsed accompaniment',
+  const accompanimentConverted = await convertFile(
+    filePath,
+    `${destination}/${filename}.wav`,
   );
-  ctx.assert(accompanimentUrl, 'Can\'t get accompaniment file URL');
-
-  const vocalsUrl = await uploadFileToStore(
-    `${destination}/${filename}/vocals.${fileExtension}`,
-    `${filename}/vocals.${fileExtension}`,
-    filename,
-    'vocals',
-    fileExtension,
-    'Parsed vocals',
-  );
-  ctx.assert(accompanimentUrl, 'Can\'t get vocals file URL');
-
-  // rm audios from server
-  fs.unlink(filePath, () => console.log('Delete ORIGINAL file from server'));
-  fs.rm(path.resolve(destination, filename), {
-    recursive: true,
-    force: true,
-  }, () => console.log('Delete PARSED files from server'));
-
-  // upload meta-data to firestore
-  const metaDataUploaded = await uploadMetaData(filename, {
-    name: `${filename}.${fileExtension}`,
-    uploadTime: Date.now(),
-    originalUrl,
-    vocalsUrl,
-    accompanimentUrl,
-  });
-  ctx.assert(metaDataUploaded, 'Can\'t upload meta-data');
-
-  // clear files except last 6 files;
-  clearDB(6);
-
-  ctx.body = [
-    { name: 'Original', url: originalUrl },
-    { name: 'Accompaniment', url: accompanimentUrl },
-    { name: 'Vocals', url: vocalsUrl },
-  ];
+  ctx.body = accompanimentConverted;
+  // // convert result to needed format
+  // if (fileExtension !== 'wav') {
+  //   const accompanimentConverted = await convertFile(
+  //     `${destination}/${filename}/accompaniment.wav`,
+  //     `${destination}/${filename}/accompaniment.${fileExtension}`,
+  //   );
+  //   const vocalsConverted = await convertFile(
+  //     `${destination}/${filename}/vocals.wav`,
+  //     `${destination}/${filename}/vocals.${fileExtension}`,
+  //   );
+  //   ctx.assert(accompanimentConverted === true, 'Accompaniment wasn\'t converted!');
+  //   ctx.assert(vocalsConverted === true, 'Vocals wasn\'t converted!');
+  // }
+  //
+  // // upload parsed music to firebase
+  // // accompaniment
+  // const accompanimentUrl = await uploadFileToStore(
+  //   `${destination}/${filename}/accompaniment.${fileExtension}`,
+  //   `${filename}/accompaniment.${fileExtension}`,
+  //   filename,
+  //   'accompaniment',
+  //   fileExtension,
+  //   'Parsed accompaniment',
+  // );
+  // ctx.assert(accompanimentUrl, 'Can\'t get accompaniment file URL');
+  //
+  // const vocalsUrl = await uploadFileToStore(
+  //   `${destination}/${filename}/vocals.${fileExtension}`,
+  //   `${filename}/vocals.${fileExtension}`,
+  //   filename,
+  //   'vocals',
+  //   fileExtension,
+  //   'Parsed vocals',
+  // );
+  // ctx.assert(accompanimentUrl, 'Can\'t get vocals file URL');
+  //
+  // // rm audios from server
+  // fs.unlink(filePath, () => console.log('Delete ORIGINAL file from server'));
+  // fs.rm(path.resolve(destination, filename), {
+  //   recursive: true,
+  //   force: true,
+  // }, () => console.log('Delete PARSED files from server'));
+  //
+  // // upload meta-data to firestore
+  // const metaDataUploaded = await uploadMetaData(filename, {
+  //   name: `${filename}.${fileExtension}`,
+  //   uploadTime: Date.now(),
+  //   originalUrl,
+  //   vocalsUrl,
+  //   accompanimentUrl,
+  // });
+  // ctx.assert(metaDataUploaded, 'Can\'t upload meta-data');
+  //
+  // // clear files except last 6 files;
+  // clearDB(6);
+  //
+  // ctx.body = [
+  //   { name: 'Original', url: originalUrl },
+  //   { name: 'Accompaniment', url: accompanimentUrl },
+  //   { name: 'Vocals', url: vocalsUrl },
+  // ];
 };
 
 const postYoutubeUrl = async ctx => {

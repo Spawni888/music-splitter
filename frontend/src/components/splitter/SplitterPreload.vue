@@ -65,6 +65,7 @@
 import axios from 'axios';
 import CoreButton from '@/components/CoreButton';
 import Plyr from 'plyr';
+import { mapActions } from 'vuex';
 
 export default {
   name: 'SplitterPreload',
@@ -97,6 +98,9 @@ export default {
     },
   },
   methods: {
+    ...mapActions([
+      'initAudioVisual',
+    ]),
     initDragNDrop() {
       this.canDragNDrop = (function browserSupportDragNDrop() {
         const div = document.createElement('div');

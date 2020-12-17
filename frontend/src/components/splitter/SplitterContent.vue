@@ -111,7 +111,7 @@ export default {
             this.$refs.splitterPreload.showError('Something went wrong with your file.');
           });
       }
-      this.audioIsSplitting = true;
+      // this.audioIsSplitting = true;
     },
     playOneSameTime(players) {
       players.forEach(player => {
@@ -148,6 +148,7 @@ export default {
 
 <style scoped lang="scss">
 .content {
+  z-index: 1;
   display: flex;
   flex-direction: column;
   width: 50%;

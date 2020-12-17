@@ -1,5 +1,6 @@
 <template>
   <main class="splitter">
+    <canvas ref="audioVisual"/>
     <CoreContainer>
       <section class="splitter__about about">
         <h1 class="about__title">
@@ -34,6 +35,10 @@ export default {
     // if no subcomponents specify a metaInfo.title, this title will be used
     title: 'Splitter',
   },
+  mounted() {
+  },
+  methods: {
+  },
   components: {
     CoreContainer,
     SplitterContent,
@@ -52,6 +57,7 @@ export default {
     .about {
       margin-right: 48px;
       max-width: 400px;
+      z-index: 1;
       //padding-bottom: 32px;
 
       &__title {
@@ -72,6 +78,14 @@ export default {
         line-height: 1.75;
       }
     }
+  }
+  canvas {
+    z-index: 0;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    position: absolute;
   }
 }
 </style>

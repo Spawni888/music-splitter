@@ -20,5 +20,6 @@ module.exports = {
     'consistent-return': 'off',
     'import/extensions': 'off',
     'func-names': 'off',
+    'class-methods-use-this': 'off',
   },
 };
