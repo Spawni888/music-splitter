@@ -11,7 +11,6 @@ class EventWrapper extends EventEmitter {
     (async () => {
       const res = await this.cb();
 
-      console.log(res);
       this.emit('executed', res);
     })();
   }

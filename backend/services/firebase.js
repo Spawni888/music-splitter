@@ -30,9 +30,9 @@ const uploadFileToStore = async (
       responseDisposition: `attachment; filename="${finalFilename}.${fileExtension}"`,
     });
     console.log(`Got url to ${logName}!`);
-
     return url[0];
   } catch (err) {
+    console.log(err);
     return null;
   }
 };

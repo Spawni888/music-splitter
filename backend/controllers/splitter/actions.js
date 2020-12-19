@@ -9,6 +9,9 @@ const { uploadMetaData, uploadFileToStore, clearDB } = require('../../services/f
 const { splitMusic, convertFile } = require('../../utils/childProcesses');
 const createHash = require('../../utils/createHash');
 const { YT_MAX_DURATION } = require('../../utils/constants');
+const PromiseQueue = require('../../utils/promiseQueue');
+
+const splitQueue = new PromiseQueue({ threads: 2 });
 
 const postSplitMusic = async ctx => {
   const destination = path.resolve(__dirname, '../../../music/');
@@ -46,76 +49,72 @@ const postSplitMusic = async ctx => {
     ctx.assert(originalUrl, 'Can\'t get original file URL');
   }
 
-  // // split music
+  // split music
+  const musicSplitted = await splitQueue.add(splitMusic.bind(null, `${filename}.${fileExtension}`));
   // const musicSplitted = await splitMusic(filePath, destination);
-  // ctx.assert(musicSplitted === true, 'Music wasn\'t splitted');
+  ctx.assert(musicSplitted === true, 'Music wasn\'t splitted');
 
-  const accompanimentConverted = await convertFile(
-    filePath,
-    `${destination}/${filename}.wav`,
+  // convert result to needed format
+  if (fileExtension !== 'wav') {
+    const accompanimentConverted = await convertFile(
+      `./${filename}/accompaniment.wav`,
+      `./${filename}/accompaniment.${fileExtension}`,
+    );
+    const vocalsConverted = await convertFile(
+      `./${filename}/vocals.wav`,
+      `./${filename}/vocals.${fileExtension}`,
+    );
+    ctx.assert(accompanimentConverted === true, 'Accompaniment wasn\'t converted!');
+    ctx.assert(vocalsConverted === true, 'Vocals wasn\'t converted!');
+  }
+
+  // upload parsed music to firebase
+  // accompaniment
+  const accompanimentUrl = await uploadFileToStore(
+    `${destination}/${filename}/accompaniment.${fileExtension}`,
+    `${filename}/accompaniment.${fileExtension}`,
+    filename,
+    'accompaniment',
+    fileExtension,
+    'Parsed accompaniment',
   );
-  ctx.body = accompanimentConverted;
-  // // convert result to needed format
-  // if (fileExtension !== 'wav') {
-  //   const accompanimentConverted = await convertFile(
-  //     `${destination}/${filename}/accompaniment.wav`,
-  //     `${destination}/${filename}/accompaniment.${fileExtension}`,
-  //   );
-  //   const vocalsConverted = await convertFile(
-  //     `${destination}/${filename}/vocals.wav`,
-  //     `${destination}/${filename}/vocals.${fileExtension}`,
-  //   );
-  //   ctx.assert(accompanimentConverted === true, 'Accompaniment wasn\'t converted!');
-  //   ctx.assert(vocalsConverted === true, 'Vocals wasn\'t converted!');
-  // }
-  //
-  // // upload parsed music to firebase
-  // // accompaniment
-  // const accompanimentUrl = await uploadFileToStore(
-  //   `${destination}/${filename}/accompaniment.${fileExtension}`,
-  //   `${filename}/accompaniment.${fileExtension}`,
-  //   filename,
-  //   'accompaniment',
-  //   fileExtension,
-  //   'Parsed accompaniment',
-  // );
-  // ctx.assert(accompanimentUrl, 'Can\'t get accompaniment file URL');
-  //
-  // const vocalsUrl = await uploadFileToStore(
-  //   `${destination}/${filename}/vocals.${fileExtension}`,
-  //   `${filename}/vocals.${fileExtension}`,
-  //   filename,
-  //   'vocals',
-  //   fileExtension,
-  //   'Parsed vocals',
-  // );
-  // ctx.assert(accompanimentUrl, 'Can\'t get vocals file URL');
-  //
-  // // rm audios from server
-  // fs.unlink(filePath, () => console.log('Delete ORIGINAL file from server'));
-  // fs.rm(path.resolve(destination, filename), {
-  //   recursive: true,
-  //   force: true,
-  // }, () => console.log('Delete PARSED files from server'));
-  //
-  // // upload meta-data to firestore
-  // const metaDataUploaded = await uploadMetaData(filename, {
-  //   name: `${filename}.${fileExtension}`,
-  //   uploadTime: Date.now(),
-  //   originalUrl,
-  //   vocalsUrl,
-  //   accompanimentUrl,
-  // });
-  // ctx.assert(metaDataUploaded, 'Can\'t upload meta-data');
-  //
-  // // clear files except last 6 files;
-  // clearDB(6);
-  //
-  // ctx.body = [
-  //   { name: 'Original', url: originalUrl },
-  //   { name: 'Accompaniment', url: accompanimentUrl },
-  //   { name: 'Vocals', url: vocalsUrl },
-  // ];
+  ctx.assert(accompanimentUrl, 'Can\'t get accompaniment file URL');
+
+  const vocalsUrl = await uploadFileToStore(
+    `${destination}/${filename}/vocals.${fileExtension}`,
+    `${filename}/vocals.${fileExtension}`,
+    filename,
+    'vocals',
+    fileExtension,
+    'Parsed vocals',
+  );
+  ctx.assert(accompanimentUrl, 'Can\'t get vocals file URL');
+
+  // rm audios from server
+  fs.unlink(filePath, () => console.log('Delete ORIGINAL file from server'));
+  fs.rm(path.resolve(destination, filename), {
+    recursive: true,
+    force: true,
+  }, () => console.log('Delete PARSED files from server'));
+
+  // upload meta-data to firestore
+  const metaDataUploaded = await uploadMetaData(filename, {
+    name: `${filename}.${fileExtension}`,
+    uploadTime: Date.now(),
+    originalUrl,
+    vocalsUrl,
+    accompanimentUrl,
+  });
+  ctx.assert(metaDataUploaded, 'Can\'t upload meta-data');
+
+  // clear files except last 6 files;
+  clearDB(6);
+
+  ctx.body = [
+    { name: 'Original', url: originalUrl },
+    { name: 'Accompaniment', url: accompanimentUrl },
+    { name: 'Vocals', url: vocalsUrl },
+  ];
 };
 
 const postYoutubeUrl = async ctx => {
@@ -139,8 +138,12 @@ const postYoutubeUrl = async ctx => {
     ytdl(ytUrl, { format }),
     fs.createWriteStream(filePath),
   );
+
   // convert file to mp3
-  const fileConverted = await convertFile(filePath, path.resolve(destination, `${filename}.mp3`));
+  const fileConverted = await convertFile(
+    `${filename}.mp4`,
+    `${filename}.mp3`,
+  );
   ctx.assert(fileConverted, 'File wasn\'t converted!');
 
   // upload file to store
