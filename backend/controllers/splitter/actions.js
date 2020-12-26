@@ -50,19 +50,25 @@ const postSplitMusic = async ctx => {
   }
 
   // split music
-  const musicSplitted = await splitQueue.add(splitMusic.bind(null, `${filename}.${fileExtension}`));
+  const musicSplitted = await splitQueue.add(
+    splitMusic.bind(
+      null,
+      `${destination}/${filename}.${fileExtension}`,
+      `${destination}`,
+    ),
+  );
   // const musicSplitted = await splitMusic(filePath, destination);
   ctx.assert(musicSplitted === true, 'Music wasn\'t splitted');
 
   // convert result to needed format
   if (fileExtension !== 'wav') {
     const accompanimentConverted = await convertFile(
-      `./${filename}/accompaniment.wav`,
-      `./${filename}/accompaniment.${fileExtension}`,
+      `${destination}/${filename}/accompaniment.wav`,
+      `${destination}/${filename}/accompaniment.${fileExtension}`,
     );
     const vocalsConverted = await convertFile(
-      `./${filename}/vocals.wav`,
-      `./${filename}/vocals.${fileExtension}`,
+      `${destination}/${filename}/vocals.wav`,
+      `${destination}/${filename}/vocals.${fileExtension}`,
     );
     ctx.assert(accompanimentConverted === true, 'Accompaniment wasn\'t converted!');
     ctx.assert(vocalsConverted === true, 'Vocals wasn\'t converted!');
@@ -141,8 +147,8 @@ const postYoutubeUrl = async ctx => {
 
   // convert file to mp3
   const fileConverted = await convertFile(
-    `${filename}.mp4`,
-    `${filename}.mp3`,
+    `${destination}/${filename}.mp4`,
+    `${destination}/${filename}.mp3`,
   );
   ctx.assert(fileConverted, 'File wasn\'t converted!');
 

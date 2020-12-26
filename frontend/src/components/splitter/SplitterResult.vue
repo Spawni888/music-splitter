@@ -12,7 +12,7 @@
         <div class="audio__case">
           <audio :src="url" />
         </div>
-        <CoreButton @click="download(url, name)">Download</CoreButton>
+        <CoreButton class="download-btn" @click="download(url, name)">Download</CoreButton>
       </div>
     </div>
     <div class="result__btn-case">
@@ -90,6 +90,9 @@ export default {
     font-size: 2rem;
     line-height: 2.5rem;
     margin-bottom: 10px;
+    @media (max-width: 576px) {
+      margin-bottom: 0;
+    }
     .loadingDots {
       text-align: start;
       display: inline-block;
@@ -123,6 +126,14 @@ export default {
 
         flex: 1;
         margin-right: 20px;
+        @media (max-width: 576px) {
+          margin-right: 10px;
+        }
+      }
+      .download-btn {
+        @media (max-width: 576px) {
+          padding: 7px;
+        }
       }
     }
   }

@@ -239,6 +239,10 @@ export default {
     height: 250px;
     width: 100%;
 
+    @media (max-width: 576px) {
+      height: 160px;
+    }
+
     &__input {
       height: 100%;
       width: 100%;
@@ -260,6 +264,9 @@ export default {
           width: 100%;
           max-width: 80px;
           display: inline-block;
+          @media (max-width: 576px) {
+            max-width: 50px;
+          }
         }
       }
 
@@ -319,6 +326,10 @@ export default {
       outline: 4px dashed #EBF9FF;
       outline-offset: -25px;
       transition: .2s ease-in-out;
+
+      @media (max-width: 576px) {
+        outline-offset: -15px;
+      }
     }
 
     .box__dragndrop {
@@ -357,6 +368,9 @@ export default {
           &__name {
             color: #ffffff;
             font-size: 0.8rem;
+            @media (max-width: 576px) {
+              font-size: 0.7rem;
+            }
           }
 
           img {
@@ -365,6 +379,9 @@ export default {
             width: 100%;
             height: auto;
             filter: invert(1);
+            @media (max-width: 576px) {
+              max-width: 10px;
+            }
           }
         }
       }
@@ -428,6 +445,9 @@ export default {
 
     .youtube__btn {
       margin-left: 20px;
+      @media (max-width: 576px) {
+        margin-left: 10px;
+      }
     }
   }
 
@@ -442,6 +462,9 @@ export default {
 
     .core-btn {
       margin-left: 20px;
+      @media (max-width: 576px) {
+        margin-left: 10px;
+      }
     }
   }
 }

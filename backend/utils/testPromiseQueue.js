@@ -1,4 +1,4 @@
-const Queue = require('./queue');
+const Queue = require('./promiseQueue');
 
 const testFn = (arg) => new Promise(resolve => setTimeout(() => resolve(arg), 5000));
 const queue = new Queue({ threads: 2 });

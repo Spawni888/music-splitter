@@ -81,8 +81,10 @@ const clearDB = (saveFilesCount) => {
               .then(() => console.log(`remove ${filename} meta-data from firestore`))
               .catch((err) => console.log(err));
           });
-        });
-    });
+        })
+        .catch(err => console.log(err));
+    })
+    .catch(err => console.log(err));
 };
 
 module.exports = {

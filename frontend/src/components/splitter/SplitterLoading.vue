@@ -73,6 +73,9 @@ export default {
     font-size: 2rem;
     line-height: 2.5rem;
     margin-bottom: 40px;
+    @media (max-width: 576px) {
+      margin-bottom: 20px;
+    }
     .loadingDots {
       text-align: start;
       display: inline-block;

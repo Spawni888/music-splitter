@@ -27,6 +27,11 @@ export default {
     font-size: .9375rem;
     line-height: 1.75;
     box-shadow: 0 2px 15px rgba(0,0,0,.1);
+    @media (max-width: 576px) {
+      padding: 6px 10px;
+      min-height: 34px;
+      min-width: 65px;
+    }
     &:hover {
       background-color: #1ABAFF;
       box-shadow: none;

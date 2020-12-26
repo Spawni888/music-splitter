@@ -14,7 +14,6 @@ const storageConfig = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const { filename, fileExtension } = parseFilename(file.originalname);
-
     if (fileExtension !== 'mp3' && fileExtension !== 'wav') return cb('Error: wrong type');
     const hashName = createHash();
 

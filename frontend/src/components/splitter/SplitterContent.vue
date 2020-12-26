@@ -156,5 +156,13 @@ export default {
   padding-bottom: 1px;
   text-align: center;
   height: 400px;
+
+  @media (max-width: 910px) {
+    width: 100%;
+  }
+  @media (max-width: 576px) {
+    width: 100%;
+    height: auto;
+  }
 }
 </style>

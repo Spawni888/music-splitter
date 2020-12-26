@@ -9,5 +9,8 @@
   min-height: 100%;
   height: 100%;
   background-color: #EBF9FF;
+  @media (max-width: 910px) {
+    height: fit-content;
+  }
 }
 </style>

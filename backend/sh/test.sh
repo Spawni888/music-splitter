@@ -1,1 +1,0 @@
-ls "$AUDIO_OUTPUT"

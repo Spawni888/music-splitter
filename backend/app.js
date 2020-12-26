@@ -1,13 +1,11 @@
 const path = require('path');
 const Koa = require('koa');
 const bodyParser = require('koa-bodyparser');
-// const koaBody = require('koa-body');
 const send = require('koa-send');
 const serve = require('koa-static');
 const logger = require('koa-logger');
 const readDir = require('recursive-readdir-sync');
 const config = require('./utils/config');
-const middlewares = require('./middlewares');
 
 const controllersDir = path.join(__dirname, 'controllers');
 
@@ -28,8 +26,7 @@ app.use(serve(path.join(__dirname, '..', 'dist')))
       console.log(err);
       ctx.status = 401;
     }
-  })
-  .use(middlewares.testMW);
+  });
 
 const files = readDir(controllersDir)
   .filter(file => file.endsWith('.js'));

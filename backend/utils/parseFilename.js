@@ -1,14 +1,18 @@
 const fileNameRegExp = /(.+\/)?(.+)\.(.+$)/gi;
 
 module.exports = (filePath) => {
-  const match = [...filePath.matchAll(fileNameRegExp)][0];
-  const destination = match[1];
-  const filename = match[2];
-  const fileExtension = match[3];
+  try {
+    console.log(filePath);
+    const match = [...filePath.matchAll(fileNameRegExp)][0];
+    const [, destination, filename, fileExtension] = match;
 
-  return {
-    destination,
-    filename,
-    fileExtension,
-  };
+    return {
+      destination,
+      filename,
+      fileExtension,
+    };
+  }
+  catch (err) {
+    console.log(err);
+  }
 };

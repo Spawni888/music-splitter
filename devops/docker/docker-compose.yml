@@ -1,0 +1,49 @@
+version: "2"
+services:
+  nginx:
+    image: nginx:1.15-alpine
+    container_name: webserver
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    volumes:
+      - ../nginx/conf:/etc/nginx/conf.d
+      - ../ssl/:/etc/ssl
+    depends_on:
+      - nodejs
+    networks:
+      - app-network
+
+  nodejs:
+    build:
+      context: ../../
+      dockerfile: ./devops/docker/nodejs/Dockerfile
+    image: nodejs
+    container_name: nodejs
+    restart: always
+    volumes:
+      - credits:/root/credits
+    tty: true
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/root/credits/fb.json
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  credits:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./credits/
+      o: bind
+  music:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./credits/
+      o: bind

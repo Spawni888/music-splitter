@@ -1,9 +1,9 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
-const PrerenderSPAPlugin = require('prerender-spa-plugin');
 
 module.exports = {
+  lintOnSave: process.env.NODE_ENV !== 'production',
   css: {
     extract: false,
     loaderOptions: {
@@ -70,24 +70,5 @@ module.exports = {
         inject: true,
       }),
     ];
-
-    // prerender at build
-    if (process.env.NODE_ENV === 'production') {
-      config.plugins.push(
-        new PrerenderSPAPlugin({
-          staticDir: path.join(__dirname, 'dist'),
-          routes: ['/', '/about'],
-
-          postProcess(renderedRoute) {
-            renderedRoute.route = renderedRoute.originalRoute;
-            if (renderedRoute.route.endsWith('.html')) {
-              renderedRoute.outputPath = path.join(__dirname, 'dist', renderedRoute.route);
-            }
-
-            return renderedRoute;
-          },
-        }),
-      );
-    }
   },
 };

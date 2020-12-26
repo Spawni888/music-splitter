@@ -1,6 +1,5 @@
 <template>
   <main class="splitter">
-    <canvas ref="audioVisual"/>
     <CoreContainer>
       <section class="splitter__about about">
         <h1 class="about__title">
@@ -48,18 +47,28 @@ export default {
 <style scoped lang="scss">
 .splitter {
   height: 100%;
+  //height: fit-content;
   display: flex;
   flex-direction: column;
+  @media (max-width: 910px) {
+    height: fit-content;
+  }
 
   .core-container {
     justify-content: space-between;
-
+    @media (max-width: 910px) {
+      display: block;
+    }
     .about {
       margin-right: 48px;
       max-width: 400px;
       z-index: 1;
       //padding-bottom: 32px;
-
+      @media (max-width: 910px) {
+        margin-right: 0;
+        margin-bottom: 40px;
+        max-width: none;
+      }
       &__title {
         font-size: 4rem;
         letter-spacing: -.025em;
@@ -67,6 +76,13 @@ export default {
         font-weight: 600;
         color: $coreColor;
         margin: 0 0 24px;
+
+        @media (max-width: 910px) {
+          margin: 0 0 40px;
+        }
+        @media (max-width: 576px) {
+          margin: 0 0 30px;
+        }
       }
 
       p {
@@ -76,16 +92,12 @@ export default {
         font-family: 'Gordita Medium', Gordita, Avenir, "Helvetica Neue", sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
         line-height: 1.75;
+
+        @media (max-width: 576px) {
+          margin: 0 0 12px;
+        }
       }
     }
-  }
-  canvas {
-    z-index: 0;
-    height: 100%;
-    width: 100%;
-    top: 0;
-    left: 0;
-    position: absolute;
   }
 }
 </style>

@@ -3,6 +3,8 @@ node_modules
 /dist
 /pretrained_models
 /music
+/credits
+/devops/ssl
 # local env files
 .env.local
 .env.*.local

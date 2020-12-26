@@ -1,11 +1,27 @@
-# split-music
+# Music-splitter
 
 ## Project setup
+Make sure you have ffmpeg installed on your system (including all necessary encoding libraries like libmp3lame or libx264.
+
+Then install python and this AI library for music splitting:
+
 ```
+https://github.com/deezer/spleeter
+```
+Install packages:
+
+```
+install 
+
 yarn install
 ```
 
-### Compiles and hot-reloads for development
+### Development
+Start NodeJS server:
+```
+yarn start
+```
+Start frontend:
 ```
 yarn serve
 ```
@@ -19,6 +35,3 @@ yarn build
 ```
 yarn lint
 ```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
