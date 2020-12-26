@@ -1,4 +1,5 @@
 # Music-splitter
+This is a web-app for splitting music-mix to accompaniment and vocals
 
 ## Project setup
 Make sure you have ffmpeg installed on your system (including all necessary encoding libraries like libmp3lame or libx264.
