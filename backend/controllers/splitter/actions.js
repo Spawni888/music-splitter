@@ -11,7 +11,7 @@ const createHash = require('../../utils/createHash');
 const { YT_MAX_DURATION } = require('../../utils/constants');
 const PromiseQueue = require('../../utils/promiseQueue');
 
-const splitQueue = new PromiseQueue({ threads: 2 });
+const splitQueue = new PromiseQueue({ threads: 1 });
 
 const postSplitMusic = async ctx => {
   const destination = path.resolve(__dirname, '../../../music/');

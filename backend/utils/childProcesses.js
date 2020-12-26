@@ -11,7 +11,11 @@ const promiseFromChildProcess = (child, childName) => new Promise(((resolve, rej
     console.log(`${childName}: ${data}`);
   });
   child.on('exit', (code) => {
-    console.log(`child process exited with code ${code}`);
+    console.log(`${childName} exited with code ${code}`);
+    if (parseInt(code, 10) !== 0) {
+      // eslint-disable-next-line prefer-promise-reject-errors
+      reject(`Error from: ${childName} exited with code ${code}`);
+    }
     resolve(true);
   });
   child.on('error', reject);

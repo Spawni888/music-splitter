@@ -9,9 +9,12 @@ class EventWrapper extends EventEmitter {
 
   execute() {
     (async () => {
-      const res = await this.cb();
-
-      this.emit('executed', res);
+      try {
+        const res = await this.cb();
+        this.emit('executed', res);
+      } catch (err) {
+        this.emit('error', err);
+      }
     })();
   }
 }
@@ -44,9 +47,16 @@ module.exports = class PromiseQueue {
   executeCb(cb) {
     cb.execute();
     cb.on('executed', () => {
-      this.inProgress = this.inProgress.filter(_cb => _cb !== cb) || [];
-      this.updateQueue();
+      this.filterQueue(cb);
     });
+    cb.on('error', () => {
+      this.filterQueue(cb);
+    });
+  }
+
+  filterQueue(cb) {
+    this.inProgress = this.inProgress.filter(_cb => _cb !== cb) || [];
+    this.updateQueue();
   }
 
   wrapInPromise(cb) {
