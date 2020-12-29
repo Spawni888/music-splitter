@@ -164,6 +164,7 @@ const postYoutubeUrl = async ctx => {
 
   // upload Meta-data
   const metaDataUploaded = uploadMetaData(filename, {
+    name: `${filename}.mp3`,
     originalUrl,
     uploadTime: Date.now(),
   });
