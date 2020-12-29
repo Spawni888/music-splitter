@@ -1,5 +1,5 @@
 <template>
-  <transition name="appear" mode="out-in">
+  <transition name="appear" mode="out-in" @enter="showErrors">
     <SplitterResult
       v-if="splitResult.length"
       key="splitResult"
@@ -46,6 +46,7 @@ export default {
     audioIsSplitting: false,
     loadingAudios: [],
     splitResult: [],
+    errorMsg: null,
   }),
   mounted() {
     this.initFirebase();
@@ -88,7 +89,7 @@ export default {
           })
           .catch(() => {
             this.audioIsSplitting = false;
-            this.$refs.splitterPreload.showError('Something went wrong with your file.');
+            this.errorMsg = 'Something went wrong with your file.';
           });
       } else {
         const formData = new FormData();
@@ -108,7 +109,7 @@ export default {
           })
           .catch(() => {
             this.audioIsSplitting = false;
-            this.$refs.splitterPreload.showError('Something went wrong with your file.');
+            this.errorMsg = 'Something went wrong with your file.';
           });
       }
       this.audioIsSplitting = true;
@@ -136,6 +137,12 @@ export default {
         audio.parentNode.style.width = '100%';
         audio.parentNode.style.borderRadius = '8px';
       });
+    },
+    showErrors() {
+      if (this.errorMsg) {
+        this.$refs.splitterPreload.showError(this.errorMsg);
+        this.errorMsg = null;
+      }
     },
   },
   components: {
